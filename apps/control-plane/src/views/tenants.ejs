@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow HQ - Tenants</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { margin-bottom: 20px; color: #333; }
+        .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-right: 8px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        th { font-weight: 600; color: #666; }
+        .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+        .status-new { background: #e9ecef; color: #495057; }
+        .status-qr_pending { background: #fff3cd; color: #856404; }
+        .status-active { background: #d4edda; color: #155724; }
+        .status-paused { background: #f8d7da; color: #721c24; }
+        .status-error { background: #f5c6cb; color: #721c24; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 4px; font-weight: 500; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1>Flow HQ - Tenant Management</h1>
+            <a href="/admin/setup-requests" class="btn btn-primary">Setup Requests</a>
+        </div>
+        
+        <div class="card">
+            <h2>Create New Tenant</h2>
+            <form id="createForm">
+                <div class="grid">
+                    <div class="form-group">
+                        <label>Business Name</label>
+                        <input type="text" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <input type="text" name="phone_number" placeholder="+255..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>Template Type</label>
+                        <select name="template_type">
+                            <option value="BOOKING">Booking</option>
+                            <option value="ECOMMERCE">E-commerce</option>
+                            <option value="SUPPORT">Support</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Display Name</label>
+                        <input type="text" name="business_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Language</label>
+                        <select name="language">
+                            <option value="SW">Swahili</option>
+                            <option value="EN">English</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Create Tenant</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2>Tenants</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Session</th>
+                        <th>Last Seen</th>
+                        <th>Worker</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% tenants.forEach(tenant => { %>
+                    <% 
+                        const lastSeen = tenant.whatsapp_session?.last_seen_at;
+                        const secondsAgo = lastSeen ? Math.floor((Date.now() - new Date(lastSeen).getTime()) / 1000) : null;
+                        let lastSeenText = 'Never';
+                        if (secondsAgo !== null) {
+                            if (secondsAgo < 60) lastSeenText = `${secondsAgo}s ago`;
+                            else if (secondsAgo < 3600) lastSeenText = `${Math.floor(secondsAgo / 60)}m ago`;
+                            else lastSeenText = `${Math.floor(secondsAgo / 3600)}h ago`;
+                        }
+                        const isStale = secondsAgo !== null && secondsAgo > 120 && tenant.worker_process?.status === 'RUNNING';
+                    %>
+                    <tr>
+                        <td><a href="/admin/tenants/<%= tenant.id %>"><%= tenant.name %></a></td>
+                        <td><%= tenant.phone_number %></td>
+                        <td>
+                            <span class="status status-<%= tenant.status.toLowerCase() %>"><%= tenant.status %></span>
+                            <% if (isStale) { %>
+                                <span class="status status-error" style="margin-left: 4px;">STALE</span>
+                            <% } %>
+                        </td>
+                        <td><%= tenant.whatsapp_session?.state || 'N/A' %></td>
+                        <td class="<%= isStale ? 'stale' : '' %>"><%= lastSeenText %></td>
+                        <td>
+                            <%= tenant.worker_process?.status || 'N/A' %>
+                            <% if (tenant.worker_process?.last_error) { %>
+                                <span title="<%= tenant.worker_process.last_error %>" style="color: #dc3545; cursor: help;">⚠</span>
+                            <% } %>
+                        </td>
+                        <td>
+                            <% if (tenant.worker_process?.status !== 'RUNNING') { %>
+                                <button class="btn btn-success" onclick="startWorker('<%= tenant.id %>')">Start</button>
+                            <% } else { %>
+                                <button class="btn btn-danger" onclick="stopWorker('<%= tenant.id %>')">Stop</button>
+                                <button class="btn btn-warning" onclick="restartWorker('<%= tenant.id %>')">Restart</button>
+                            <% } %>
+                            <% if (tenant.status === 'ERROR' || isStale) { %>
+                                <button class="btn btn-danger" onclick="forceRestartWorker('<%= tenant.id %>')">Force Restart</button>
+                            <% } %>
+                            <a href="/admin/tenants/<%= tenant.id %>" class="btn btn-primary">View</a>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('createForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            
+            const res = await fetch('/admin/tenants', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            if (res.ok) {
+                window.location.reload();
+            } else {
+                alert('Failed to create tenant');
+            }
+        });
+
+        async function startWorker(id) {
+            const res = await fetch(`/admin/tenants/${id}/worker/start`, { method: 'POST' });
+            if (res.ok) window.location.reload();
+            else alert('Failed to start worker');
+        }
+
+        async function stopWorker(id) {
+            const res = await fetch(`/admin/tenants/${id}/worker/stop`, { method: 'POST' });
+            if (res.ok) window.location.reload();
+            else alert('Failed to stop worker');
+        }
+
+        async function restartWorker(id) {
+            const res = await fetch(`/admin/tenants/${id}/worker/restart`, { method: 'POST' });
+            if (res.ok) window.location.reload();
+            else alert('Failed to restart worker');
+        }
+
+        async function forceRestartWorker(id) {
+            if (!confirm('Force restart will stop and restart the worker. Continue?')) return;
+            const res = await fetch(`/admin/tenants/${id}/worker/force-restart`, { method: 'POST' });
+            if (res.ok) window.location.reload();
+            else alert('Failed to force-restart worker');
+        }
+    </script>
+</body>
+</html>

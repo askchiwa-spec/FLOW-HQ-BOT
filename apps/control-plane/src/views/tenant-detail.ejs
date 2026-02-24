@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow HQ - <%= tenant.name %></title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { margin-bottom: 20px; color: #333; }
+        .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-right: 8px; text-decoration: none; display: inline-block; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .status { padding: 4px 12px; border-radius: 4px; font-size: 14px; font-weight: 500; }
+        .status-new { background: #e9ecef; color: #495057; }
+        .status-qr_pending { background: #fff3cd; color: #856404; }
+        .status-active { background: #d4edda; color: #155724; }
+        .status-paused { background: #f8d7da; color: #721c24; }
+        .status-error { background: #f5c6cb; color: #721c24; }
+        .qr-container { text-align: center; padding: 40px; }
+        .qr-container img { max-width: 300px; }
+        .qr-placeholder { width: 300px; height: 300px; background: #f8f9fa; border: 2px dashed #dee2e6; display: flex; align-items: center; justify-content: center; margin: 0 auto; color: #6c757d; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
+        th { font-weight: 600; color: #666; }
+        .message-in { color: #28a745; }
+        .message-out { color: #007bff; }
+        .info-row { display: flex; margin-bottom: 8px; }
+        .info-label { width: 150px; font-weight: 500; color: #666; }
+        .info-value { flex: 1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><%= tenant.name %></h1>
+        <a href="/admin/tenants" class="btn btn-primary">← Back to Tenants</a>
+        
+        <div class="grid" style="margin-top: 20px;">
+            <div class="card">
+                <h2>Details</h2>
+                <div class="info-row">
+                    <div class="info-label">ID:</div>
+                    <div class="info-value"><%= tenant.id %></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Phone:</div>
+                    <div class="info-value"><%= tenant.phone_number %></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Status:</div>
+                    <div class="info-value"><span class="status status-<%= tenant.status.toLowerCase() %>"><%= tenant.status %></span></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Template:</div>
+                    <div class="info-value"><%= tenant.config?.template_type %></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Business:</div>
+                    <div class="info-value"><%= tenant.config?.business_name %></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Language:</div>
+                    <div class="info-value"><%= tenant.config?.language %></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Worker:</div>
+                    <div class="info-value"><%= tenant.worker_process?.status || 'N/A' %> (<%= tenant.worker_process?.pm2_name || 'N/A' %>)</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Session:</div>
+                    <div class="info-value"><%= tenant.whatsapp_session?.state || 'N/A' %></div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">Last Seen:</div>
+                    <div class="info-value">
+                        <% 
+                            const lastSeen = tenant.whatsapp_session?.last_seen_at;
+                            const secondsAgo = lastSeen ? Math.floor((Date.now() - new Date(lastSeen).getTime()) / 1000) : null;
+                            let lastSeenText = 'Never';
+                            if (secondsAgo !== null) {
+                                if (secondsAgo < 60) lastSeenText = `${secondsAgo}s ago`;
+                                else if (secondsAgo < 3600) lastSeenText = `${Math.floor(secondsAgo / 60)}m ago`;
+                                else lastSeenText = `${Math.floor(secondsAgo / 3600)}h ago`;
+                            }
+                        %>
+                        <%= lastSeenText %>
+                        <% if (tenant.whatsapp_session?.last_seen_at) { %>
+                            (<%= new Date(tenant.whatsapp_session.last_seen_at).toLocaleString() %>)
+                        <% } %>
+                    </div>
+                </div>
+                <% if (tenant.worker_process?.last_error) { %>
+                <div class="info-row">
+                    <div class="info-label">Last Error:</div>
+                    <div class="info-value" style="color: #dc3545; font-size: 12px;">
+                        <%= tenant.worker_process.last_error %>
+                    </div>
+                </div>
+                <% } %>
+                
+                <div style="margin-top: 20px;">
+                    <% if (tenant.worker_process?.status !== 'RUNNING') { %>
+                        <button class="btn btn-success" onclick="startWorker()">Start Worker</button>
+                    <% } else { %>
+                        <button class="btn btn-danger" onclick="stopWorker()">Stop Worker</button>
+                        <button class="btn btn-warning" onclick="restartWorker()">Restart Worker</button>
+                    <% } %>
+                    <% if (tenant.status === 'ERROR') { %>
+                        <button class="btn btn-danger" onclick="forceRestartWorker()">Force Restart</button>
+                    <% } %>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>QR Code</h2>
+                <div class="qr-container">
+                    <% if (tenant.whatsapp_session?.last_qr) { %>
+                        <img src="<%= tenant.whatsapp_session.last_qr %>" alt="QR Code">
+                        <p style="margin-top: 10px; color: #666;">Scan with WhatsApp</p>
+                    <% } else { %>
+                        <div class="qr-placeholder">
+                            <% if (tenant.status === 'QR_PENDING') { %>
+                                Waiting for QR...
+                            <% } else if (tenant.status === 'ACTIVE') { %>
+                                Connected
+                            <% } else { %>
+                                Start worker to generate QR
+                            <% } %>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Recent Messages (Last 50)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Direction</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% logs.forEach(log => { %>
+                    <tr>
+                        <td><%= new Date(log.created_at).toLocaleString() %></td>
+                        <td class="message-<%= log.direction.toLowerCase() %>"><%= log.direction %></td>
+                        <td><%= log.from_number %></td>
+                        <td><%= log.to_number %></td>
+                        <td><%= log.message_text %></td>
+                    </tr>
+                    <% }) %>
+                    <% if (logs.length === 0) { %>
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #999;">No messages yet</td>
+                    </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const tenantId = '<%= tenant.id %>';
+        
+        async function startWorker() {
+            const res = await fetch(`/admin/tenants/${tenantId}/worker/start`, { method: 'POST' });
+            if (res.ok) window.location.reload();
+            else alert('Failed to start worker');
+        }
+
+        async function stopWorker() {
+            const res = await fetch(`/admin/tenants/${tenantId}/worker/stop`, { method: 'POST' });
+            if (res.ok) window.location.reload();
+            else alert('Failed to stop worker');
+        }
+
+        async function restartWorker() {
+            const res = await fetch(`/admin/tenants/${tenantId}/worker/restart`, { method: 'POST' });
+            if (res.ok) window.location.reload();
+            else alert('Failed to restart worker');
+        }
+
+        async function forceRestartWorker() {
+            if (!confirm('Force restart will stop and restart the worker. Continue?')) return;
+            const res = await fetch(`/admin/tenants/${tenantId}/worker/force-restart`, { method: 'POST' });
+            if (res.ok) window.location.reload();
+            else alert('Failed to force-restart worker');
+        }
+
+        // Auto-refresh QR code every 5 seconds if waiting
+        <% if (tenant.status === 'QR_PENDING') { %>
+        setInterval(async () => {
+            const res = await fetch(`/admin/tenants/${tenantId}/qr`);
+            const data = await res.json();
+            if (data.qr) {
+                window.location.reload();
+            }
+        }, 5000);
+        <% } %>
+    </script>
+</body>
+</html>

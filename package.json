@@ -1,0 +1,20 @@
+{
+  "name": "flowhq-whatsapp-mvp",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "db:generate": "npm run db:generate --workspace=@flowhq/shared",
+    "db:migrate": "npm run db:migrate --workspace=@flowhq/shared",
+    "db:deploy": "npm run db:deploy --workspace=@flowhq/shared",
+    "dev:api": "npm run dev --workspace=@flowhq/control-plane",
+    "start:api": "npm run start --workspace=@flowhq/control-plane"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}

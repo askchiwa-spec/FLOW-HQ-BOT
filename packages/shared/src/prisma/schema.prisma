@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TenantStatus {
+  NEW
+  QR_PENDING
+  ACTIVE
+  PAUSED
+  ERROR
+}
+
+enum TemplateType {
+  BOOKING
+  ECOMMERCE
+  SUPPORT
+}
+
+enum Language {
+  SW
+  EN
+}
+
+enum SessionState {
+  DISCONNECTED
+  QR_READY
+  CONNECTED
+}
+
+enum MessageDirection {
+  IN
+  OUT
+}
+
+enum WorkerStatus {
+  RUNNING
+  STOPPED
+  ERROR
+}
+
+enum UserRole {
+  OWNER
+  STAFF
+  ADMIN
+}
+
+enum SetupRequestStatus {
+  SUBMITTED
+  REVIEWING
+  APPROVED
+  ACTIVE
+  REJECTED
+}
+
+model Tenant {
+  id            String       @id @default(uuid())
+  name          String
+  phone_number  String
+  status        TenantStatus @default(NEW)
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @updatedAt
+
+  config        TenantConfig?
+  whatsapp_session WhatsAppSession?
+  message_logs  MessageLog[]
+  worker_process WorkerProcess?
+  user          User?
+  setup_requests SetupRequest[]
+
+  @@map("tenants")
+}
+
+model TenantConfig {
+  id            String       @id @default(uuid())
+  tenant_id     String       @unique
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  template_type TemplateType @default(BOOKING)
+  business_name String
+  language      Language     @default(SW)
+  hours_json    Json?
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @updatedAt
+
+  @@map("tenant_configs")
+}
+
+model WhatsAppSession {
+  id            String       @id @default(uuid())
+  tenant_id     String       @unique
+  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  state         SessionState @default(DISCONNECTED)
+  last_qr       String?
+  last_seen_at  DateTime?
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @updatedAt
+
+  @@map("whatsapp_sessions")
+}
+
+model MessageLog {
+  id              String          @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant          @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  direction       MessageDirection
+  from_number     String
+  to_number       String
+  message_text    String
+  wa_message_id   String?
+  created_at      DateTime        @default(now())
+
+  @@index([tenant_id, created_at])
+  @@map("message_logs")
+}
+
+model WorkerProcess {
+  id          String       @id @default(uuid())
+  tenant_id   String       @unique
+  tenant      Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  pm2_name    String
+  status      WorkerStatus @default(STOPPED)
+  last_error  String?
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+
+  @@map("worker_processes")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  tenant_id     String?   @unique
+  tenant        Tenant?   @relation(fields: [tenant_id], references: [id])
+  name          String
+  email         String    @unique
+  phone         String?
+  role          UserRole  @default(OWNER)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  setup_requests SetupRequest[]
+  portal_events  PortalEventLog[]
+
+  @@map("users")
+}
+
+model SetupRequest {
+  id              String             @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant             @relation(fields: [tenant_id], references: [id])
+  user_id         String
+  user            User               @relation(fields: [user_id], references: [id])
+  template_type   TemplateType
+  whatsapp_number String
+  status          SetupRequestStatus @default(SUBMITTED)
+  notes           String?
+  created_at      DateTime           @default(now())
+  updated_at      DateTime           @updatedAt
+
+  @@map("setup_requests")
+}
+
+model PortalEventLog {
+  id          String   @id @default(uuid())
+  tenant_id   String
+  user_id     String?
+  user        User?    @relation(fields: [user_id], references: [id])
+  event_type  String
+  payload_json Json?
+  created_at  DateTime @default(now())
+
+  @@index([tenant_id, created_at])
+  @@map("portal_event_logs")
+}
