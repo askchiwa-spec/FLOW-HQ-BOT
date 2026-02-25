@@ -10,7 +10,7 @@
     "db:deploy": "prisma migrate deploy --schema=src/prisma/schema.prisma"
   },
   "dependencies": {
-    "@prisma/client": "^5.7.0",
+    "@prisma/client": "^5.22.0",
     "pino": "^8.17.0",
     "pino-pretty": "^10.3.0"
   },

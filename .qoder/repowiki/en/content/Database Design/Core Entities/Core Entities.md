@@ -4,19 +4,27 @@
 **Referenced Files in This Document**
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma)
 - [types/index.ts](file://packages/shared/src/types/index.ts)
-- [prisma.ts](file://apps/web/src/lib/prisma.ts)
+- [bot.ts](file://apps/worker/src/bot.ts)
+- [worker.ts](file://apps/worker/src/worker.ts)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts)
 - [tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs)
 - [tenants.ejs](file://apps/control-plane/src/views/tenants.ejs)
-- [bot.ts](file://apps/worker/src/bot.ts)
-- [worker.ts](file://apps/worker/src/worker.ts)
+- [status/route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts)
+- [logs/route.ts](file://apps/web/src/app/api/portal/tenant/current/logs/route.ts)
+- [logger.ts](file://packages/shared/src/utils/logger.ts)
 - [reconnect.ts](file://apps/worker/src/utils/reconnect.ts)
 - [dedup.ts](file://apps/worker/src/utils/dedup.ts)
 - [chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts)
-- [logger.ts](file://packages/shared/src/utils/logger.ts)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/logs/route.ts)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added comprehensive documentation for all seven core database entities
+- Updated entity definitions to include User and SetupRequest models
+- Enhanced relationship mappings between entities
+- Expanded business rule coverage for all entities
+- Updated architectural diagrams to reflect complete entity ecosystem
+- Added new sections for User and SetupRequest entities
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -30,14 +38,16 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document provides comprehensive documentation for the core database entities in Flow HQ. It focuses on:
+This document provides comprehensive documentation for the core database entities in Flow HQ. It focuses on seven interconnected entities that form the foundation of the multi-tenant WhatsApp automation platform:
 - Tenant: lifecycle management, status tracking, and multi-tenant isolation
 - TenantConfig: business configuration including template types, language settings, and operational hours
+- User: authentication, authorization, and user management within tenants
+- SetupRequest: application workflow for tenant onboarding and approval
 - WhatsAppSession: connection state management, QR code handling, and session persistence
 - MessageLog: conversation tracking, message direction, and audit trails
 - WorkerProcess: automation status monitoring and process management
 
-The document also covers field definitions, data types, constraints, and business rules derived from the Prisma schema and related implementations.
+The document covers field definitions, data types, constraints, and business rules derived from the Prisma schema and related implementations.
 
 ## Project Structure
 The core data model is defined centrally and consumed across the control plane, worker, and web portal:
@@ -58,7 +68,7 @@ subgraph "Control Plane"
 ADMIN_ROUTES["Admin Routes<br/>admin.ts"]
 VIEW_TENANT["Tenant View<br/>tenant-detail.ejs"]
 VIEW_TENANTS["Tenants View<br/>tenants.ejs"]
-end
+END
 subgraph "Worker"
 BOT["WhatsApp Bot<br/>bot.ts"]
 WORKER_ENTRY["Worker Entry<br/>worker.ts"]
@@ -95,19 +105,18 @@ LOGS_ROUTE --> ADMIN_ROUTES
 - [dedup.ts](file://apps/worker/src/utils/dedup.ts#L1-L92)
 - [chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L1-L42)
 - [logger.ts](file://packages/shared/src/utils/logger.ts#L1-L32)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/logs/route.ts#L1-L35)
+- [status/route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
+- [logs/route.ts](file://apps/web/src/app/api/portal/tenant/current/logs/route.ts#L1-L35)
 
 **Section sources**
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L1-L178)
 - [types/index.ts](file://packages/shared/src/types/index.ts#L1-L41)
-- [prisma.ts](file://apps/web/src/lib/prisma.ts#L1-L10)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L528)
 - [bot.ts](file://apps/worker/src/bot.ts#L1-L200)
 - [worker.ts](file://apps/worker/src/worker.ts#L1-L46)
 - [logger.ts](file://packages/shared/src/utils/logger.ts#L1-L32)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/logs/route.ts#L1-L35)
+- [status/route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
+- [logs/route.ts](file://apps/web/src/app/api/portal/tenant/current/logs/route.ts#L1-L35)
 
 ## Core Components
 This section documents each core entity with its fields, data types, constraints, and business rules.
@@ -122,6 +131,7 @@ This section documents each core entity with its fields, data types, constraints
   - One-to-many with MessageLog
   - One-to-one with WorkerProcess
   - Optional User ownership
+  - One-to-many with SetupRequest
 
 Fields and constraints:
 - id: String (UUID primary key)
@@ -134,6 +144,7 @@ Fields and constraints:
 Business rules:
 - Status progression is enforced by control plane and worker actions
 - Tenant deletion cascades to related records (via relations)
+- Tenant ownership is optional and managed through User relationship
 
 **Section sources**
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L76)
@@ -149,6 +160,7 @@ Business rules:
 Fields and constraints:
 - id: String (UUID primary key)
 - tenant_id: String (unique, foreign key to Tenant)
+- tenant: Tenant (relation)
 - template_type: TemplateType enum with default BOOKING
 - business_name: String (required)
 - language: Language enum with default SW
@@ -159,10 +171,65 @@ Fields and constraints:
 Business rules:
 - One-to-one relation with Tenant via tenant_id
 - Defaults applied for template_type and language
+- Hours configuration stored as JSON for flexibility
 
 **Section sources**
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L78-L90)
 - [types/index.ts](file://packages/shared/src/types/index.ts#L21-L27)
+
+### User
+- Purpose: Manages authentication, authorization, and user management within tenants
+- Roles: OWNER, STAFF, ADMIN with different permission levels
+- Tenant association: Optional one-to-one relationship with Tenant
+- Relations: One-to-many with SetupRequest and PortalEventLog
+
+Fields and constraints:
+- id: String (UUID primary key)
+- tenant_id: String (unique, foreign key to Tenant)
+- tenant: Tenant (relation)
+- name: String (required)
+- email: String (unique, required)
+- phone: String (optional)
+- role: UserRole enum with default OWNER
+- created_at: DateTime (default now)
+- updated_at: DateTime (updatedAt)
+
+Business rules:
+- Email uniqueness enforced at database level
+- Role determines access permissions within tenant
+- User can own only one tenant (one-to-one constraint)
+
+**Section sources**
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L133-L148)
+
+### SetupRequest
+- Purpose: Handles tenant onboarding workflow with approval process
+- Status workflow: SUBMITTED → REVIEWING → APPROVED → ACTIVE → REJECTED
+- Template types: BOOKING, ECOMMERCE, SUPPORT
+- Relations: Belongs to Tenant and User
+
+Fields and constraints:
+- id: String (UUID primary key)
+- tenant_id: String (foreign key to Tenant)
+- tenant: Tenant (relation)
+- user_id: String (foreign key to User)
+- user: User (relation)
+- template_type: TemplateType (required)
+- whatsapp_number: String (required)
+- status: SetupRequestStatus enum with default SUBMITTED
+- notes: String (optional)
+- created_at: DateTime (default now)
+- updated_at: DateTime (updatedAt)
+
+Business rules:
+- Approval process transitions status through workflow stages
+- Approved requests trigger automatic worker startup
+- Status changes are tracked with associated notes
+- Setup requests are linked to both tenant and user who submitted them
+
+**Section sources**
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L150-L164)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L419-L489)
 
 ### WhatsAppSession
 - Purpose: Manages WhatsApp connection state and QR handling
@@ -172,6 +239,7 @@ Business rules:
 Fields and constraints:
 - id: String (UUID primary key)
 - tenant_id: String (unique, foreign key to Tenant)
+- tenant: Tenant (relation)
 - state: SessionState enum with default DISCONNECTED
 - last_qr: String (optional QR code image)
 - last_seen_at: DateTime (optional)
@@ -198,6 +266,7 @@ Business rules:
 Fields and constraints:
 - id: String (UUID primary key)
 - tenant_id: String (foreign key to Tenant)
+- tenant: Tenant (relation)
 - direction: MessageDirection enum (required)
 - from_number: String (required)
 - to_number: String (required)
@@ -208,6 +277,7 @@ Fields and constraints:
 Business rules:
 - Tenant-scoped logging
 - Indexed for tenant_id and created_at to support pagination and tenant filtering
+- Message deduplication supported through wa_message_id
 
 **Section sources**
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L105-L118)
@@ -221,6 +291,7 @@ Business rules:
 Fields and constraints:
 - id: String (UUID primary key)
 - tenant_id: String (unique, foreign key to Tenant)
+- tenant: Tenant (relation)
 - pm2_name: String (process name)
 - status: WorkerStatus enum with default STOPPED
 - last_error: String (optional)
@@ -239,10 +310,12 @@ Business rules:
 - [worker.ts](file://apps/worker/src/worker.ts#L1-L46)
 
 ## Architecture Overview
-The system orchestrates multi-tenant operations across control plane, worker, and portal layers:
+The system orchestrates multi-tenant operations across control plane, worker, and portal layers with comprehensive entity relationships:
 - Control plane creates tenants and manages worker lifecycle
 - Worker maintains WhatsApp connection, persists session state, and logs messages
 - Portal routes expose tenant status and logs to authenticated users
+- SetupRequest workflow handles tenant onboarding approvals
+- User management provides authentication and authorization
 
 ```mermaid
 sequenceDiagram
@@ -349,6 +422,71 @@ TenantConfig --> Tenant : "belongsTo"
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L78-L90)
 - [types/index.ts](file://packages/shared/src/types/index.ts#L21-L27)
 
+### User Entity Analysis
+- Authentication and authorization:
+  - Email-based authentication with unique constraint
+  - Role-based access control (OWNER, STAFF, ADMIN)
+- Tenant association:
+  - Optional ownership of single tenant
+  - User-permissioned access to tenant resources
+- Event logging:
+  - Tracks user interactions through PortalEventLog
+
+```mermaid
+classDiagram
+class User {
++string id
++string tenant_id
++string name
++string email
++string phone
++UserRole role
++DateTime created_at
++DateTime updated_at
+}
+class Tenant {
++string id
+}
+User --> Tenant : "owns (optional)"
+```
+
+**Diagram sources**
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L133-L148)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L76)
+
+**Section sources**
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L133-L148)
+
+### SetupRequest Analysis
+- Onboarding workflow:
+  - SUBMITTED → REVIEWING → APPROVED → ACTIVE → REJECTED
+  - Automated transitions for approved requests
+- Template selection:
+  - Supports BOOKING, ECOMMERCE, SUPPORT configurations
+  - Preserves template preferences during setup
+- Approval process:
+  - User-driven approval with notes
+  - Automatic worker startup for approved requests
+
+```mermaid
+stateDiagram-v2
+[*] --> SUBMITTED
+SUBMITTED --> REVIEWING : "admin review"
+REVIEWING --> APPROVED : "approved"
+REVIEWING --> REJECTED : "rejected"
+APPROVED --> ACTIVE : "worker start"
+ACTIVE --> [*]
+REJECTED --> [*]
+```
+
+**Diagram sources**
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L52-L58)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L419-L489)
+
+**Section sources**
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L150-L164)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L373-L489)
+
 ### WhatsAppSession Analysis
 - QR code handling:
   - QR event stores QR as data URL
@@ -452,7 +590,7 @@ WB->>DB : Update Tenant status=ACTIVE
 - [bot.ts](file://apps/worker/src/bot.ts#L98-L151)
 
 ## Dependency Analysis
-The following diagram shows key dependencies among core entities and their usage across modules:
+The following diagram shows key dependencies among all seven core entities and their usage across modules:
 
 ```mermaid
 erDiagram
@@ -461,6 +599,27 @@ uuid id PK
 string name
 string phone_number
 enum status
+timestamp created_at
+timestamp updated_at
+}
+USER {
+uuid id PK
+uuid tenant_id UK FK
+string name
+string email UK
+string phone
+enum role
+timestamp created_at
+timestamp updated_at
+}
+SETUP_REQUEST {
+uuid id PK
+uuid tenant_id FK
+uuid user_id FK
+enum template_type
+string whatsapp_number
+enum status
+string notes
 timestamp created_at
 timestamp updated_at
 }
@@ -506,21 +665,25 @@ TENANT ||--o| TENANT_CONFIG : "has one"
 TENANT ||--o| WHATSAPP_SESSION : "has one"
 TENANT ||--o{ MESSAGE_LOG : "has many"
 TENANT ||--o| WORKER_PROCESS : "has one"
+TENANT ||--o{ SETUP_REQUEST : "has many"
+USER ||--o| TENANT : "owns (optional)"
+USER ||--o{ SETUP_REQUEST : "submits"
+SETUP_REQUEST ||--|| TENANT : "belongs to"
+SETUP_REQUEST ||--|| USER : "submitted by"
 ```
 
 **Diagram sources**
-- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L131)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L164)
 
 **Section sources**
-- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L131)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L164)
 
 ## Performance Considerations
 - Indexing: MessageLog is indexed by tenant_id and created_at to optimize tenant-scoped queries and pagination
 - Logging: Centralized logger supports per-tenant log files to avoid cross-tenant log mixing and improve observability
 - Worker staleness: Control plane periodically detects stale workers to prevent resource leaks and maintain system health
 - Queueing and deduplication: ChatQueueManager and MessageDeduplicator prevent overload and duplicate processing
-
-[No sources needed since this section provides general guidance]
+- SetupRequest workflow: Efficient approval process with automatic transitions reduces administrative overhead
 
 ## Troubleshooting Guide
 Common issues and remedies:
@@ -536,6 +699,12 @@ Common issues and remedies:
   - Deduplicator uses wa_message_id; ensure it is present and unique
 - Queue overflow:
   - ChatQueueManager enforces a maximum queue size per chat; consider increasing capacity or reducing load
+- SetupRequest approval failures:
+  - Verify user has proper permissions for tenant
+  - Check template_type matches tenant configuration
+- User authentication issues:
+  - Ensure email uniqueness and proper role assignment
+  - Verify tenant ownership constraints
 
 **Section sources**
 - [bot.ts](file://apps/worker/src/bot.ts#L78-L96)
@@ -543,13 +712,16 @@ Common issues and remedies:
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L30-L80)
 - [dedup.ts](file://apps/worker/src/utils/dedup.ts#L28-L46)
 - [chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L35-L42)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L419-L489)
 
 ## Conclusion
-The core entities in Flow HQ provide a robust foundation for multi-tenant WhatsApp automation:
+The seven core entities in Flow HQ provide a robust foundation for multi-tenant WhatsApp automation:
 - Tenant tracks lifecycle and status
 - TenantConfig encapsulates business configuration
+- User manages authentication and authorization
+- SetupRequest handles onboarding workflow
 - WhatsAppSession manages connection state and QR handling
 - MessageLog ensures auditability and conversation tracking
 - WorkerProcess monitors automation health and liveness
 
-The Prisma schema defines strong constraints and relations, while control plane and worker implementations enforce business rules and state transitions.
+The Prisma schema defines strong constraints and relations, while control plane and worker implementations enforce business rules and state transitions. The comprehensive entity model supports scalable multi-tenant operations with proper isolation, auditing, and workflow management.

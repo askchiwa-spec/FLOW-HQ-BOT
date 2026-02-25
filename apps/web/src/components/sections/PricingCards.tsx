@@ -1,6 +1,9 @@
+'use client';
+
 import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
+import { useInView } from 'react-intersection-observer';
+import { Button } from '../ui/Button';
+import { Badge } from '../ui/Badge';
 
 const plans = [
   {
@@ -39,9 +42,11 @@ const plans = [
   },
 ];
 
-export default function PricingPage() {
+export function PricingCards() {
+  const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 });
+
   return (
-    <div className="min-h-screen bg-dark-900 pt-32 pb-20">
+    <section id="pricing" className="relative py-20 lg:py-32 overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-dark-950 via-dark-900 to-dark-950" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary-500/5 rounded-full blur-3xl" />
@@ -49,19 +54,20 @@ export default function PricingPage() {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <motion.div
+          ref={ref}
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
           className="text-center mb-16"
         >
           <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-accent-500/10 border border-accent-500/20 text-accent-400 text-sm font-medium mb-4">
             Pricing
           </span>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-bold text-white mb-4">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-heading font-bold text-white mb-4">
             Simple, Transparent{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-400 to-primary-400">
               Pricing
             </span>
-          </h1>
+          </h2>
           <p className="text-lg text-slate-400 max-w-2xl mx-auto">
             No hidden fees. No long-term contracts. Cancel anytime.
           </p>
@@ -73,7 +79,7 @@ export default function PricingPage() {
             <motion.div
               key={plan.name}
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              animate={inView ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: index * 0.2 }}
               className={`relative rounded-3xl p-8 ${
                 plan.popular
@@ -136,6 +142,15 @@ export default function PricingPage() {
               >
                 {plan.cta}
               </Button>
+
+              {/* Tooltip */}
+              <p className="text-center text-slate-500 text-xs mt-4">
+                {plan.popular ? (
+                  <span title="Bei gani? - How much?">💡 Hover for Swahili translation</span>
+                ) : (
+                  'Contact us for a custom quote'
+                )}
+              </p>
             </motion.div>
           ))}
         </div>
@@ -143,7 +158,7 @@ export default function PricingPage() {
         {/* Money-back Guarantee */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
           transition={{ delay: 0.4 }}
           className="mt-12 text-center"
         >
@@ -152,17 +167,7 @@ export default function PricingPage() {
             <span className="text-white font-medium">7-day money-back guarantee</span>
           </div>
         </motion.div>
-
-        {/* FAQ Link */}
-        <div className="mt-8 text-center">
-          <p className="text-slate-400">
-            Have questions?{' '}
-            <a href="/faq" className="text-primary-400 hover:text-primary-300 font-medium">
-              Check our FAQ
-            </a>
-          </p>
-        </div>
       </div>
-    </div>
+    </section>
   );
 }
