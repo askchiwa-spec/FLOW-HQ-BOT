@@ -6,18 +6,42 @@
 - [providers.tsx](file://apps/web/src/app/providers.tsx)
 - [middleware.ts](file://apps/web/src/middleware.ts)
 - [auth.ts](file://apps/web/src/lib/auth.ts)
+- [Header.tsx](file://apps/web/src/components/layout/Header.tsx)
+- [Footer.tsx](file://apps/web/src/components/layout/Footer.tsx)
+- [HeroSection.tsx](file://apps/web/src/components/sections/HeroSection.tsx)
+- [Button.tsx](file://apps/web/src/components/ui/Button.tsx)
+- [Card.tsx](file://apps/web/src/components/ui/Card.tsx)
+- [Badge.tsx](file://apps/web/src/components/ui/Badge.tsx)
+- [Container.tsx](file://apps/web/src/components/ui/Container.tsx)
+- [SectionHeader.tsx](file://apps/web/src/components/ui/SectionHeader.tsx)
 - [Sidebar.tsx](file://apps/web/src/components/portal/Sidebar.tsx)
-- [page.tsx](file://apps/web/src/app/(portal)/layout.tsx)
-- [page.tsx](file://apps/web/src/app/auth/signin/page.tsx)
+- [marketing layout.tsx](file://apps/web/src/app/(marketing)/layout.tsx)
+- [about page.tsx](file://apps/web/src/app/(marketing)/about/page.tsx)
+- [faq page.tsx](file://apps/web/src/app/(marketing)/faq/page.tsx)
+- [templates page.tsx](file://apps/web/src/app/(marketing)/templates/page.tsx)
+- [portal layout.tsx](file://apps/web/src/app/(portal)/layout.tsx)
+- [onboarding page.tsx](file://apps/web/src/app/(portal)/app/onboarding/page.tsx)
+- [status page.tsx](file://apps/web/src/app/(portal)/app/status/page.tsx)
+- [whatsapp page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx)
+- [logs page.tsx](file://apps/web/src/app/(portal)/app/logs/page.tsx)
+- [signin page.tsx](file://apps/web/src/app/auth/signin/page.tsx)
 - [route.ts](file://apps/web/src/app/api/auth/[...nextauth]/route.ts)
 - [route.ts](file://apps/web/src/app/api/portal/me/route.ts)
 - [route.ts](file://apps/web/src/app/api/portal/setup-request/route.ts)
-- [page.tsx](file://apps/web/src/app/(portal)/app/onboarding/page.tsx)
-- [page.tsx](file://apps/web/src/app/(portal)/app/status/page.tsx)
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts)
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts)
 - [globals.css](file://apps/web/src/app/globals.css)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added comprehensive documentation for the new African Futurism UI redesign
+- Documented new marketing pages (About, FAQ, Templates) with detailed component analysis
+- Added HeroSection component with WhatsApp integration and animated features
+- Documented complete UI component library (Button, Card, Badge, Container, SectionHeader)
+- Added new layout components (Header, Footer) with responsive design patterns
+- Enhanced global styling documentation with Tailwind CSS configuration and African Futurism themes
+- Updated project structure to reflect new marketing route groups and components
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -25,336 +49,200 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+6. [UI Redesign and African Futurism Theme](#ui-redesign-and-african-futurism-theme)
+7. [New Marketing Pages](#new-marketing-pages)
+8. [Enhanced UI Component Library](#enhanced-ui-component-library)
+9. [Layout System and Navigation](#layout-system-and-navigation)
+10. [Dependency Analysis](#dependency-analysis)
+11. [Performance Considerations](#performance-considerations)
+12. [Troubleshooting Guide](#troubleshooting-guide)
+13. [Conclusion](#conclusion)
+14. [Appendices](#appendices)
 
 ## Introduction
-This document describes the Next.js frontend application and user interface for Flow HQ. It covers the application structure with marketing pages and a protected portal, authentication integration using NextAuth.js with Google OAuth, tenant dashboard functionality, and API integration patterns. It also documents middleware for authentication and authorization, sidebar navigation, responsive design with Tailwind CSS, and practical user flows for onboarding, status monitoring, and portal navigation.
+This document describes the Next.js frontend application and user interface for Flow HQ, featuring a complete UI redesign with an African Futurism theme. The application now includes marketing pages with modern animations, a comprehensive portal interface with enhanced authentication, tenant dashboard functionality, and API integration patterns. The redesign introduces sophisticated UI components, responsive design with Tailwind CSS, and practical user flows for business owners managing multiple tenants.
 
 ## Project Structure
-The frontend is organized into:
-- Marketing pages under a named route group for marketing content.
-- A protected portal under a named route group for authenticated users.
-- Shared providers and global styles.
-- Middleware for authentication gating and redirects.
-- Authentication routes handled by NextAuth.js.
-- API routes that proxy requests to the control plane backend.
+The frontend is organized into a dual-layer architecture with marketing and portal route groups, enhanced with a comprehensive UI component library:
 
 ```mermaid
 graph TB
-subgraph "Marketing"
-M1["apps/web/src/app/(marketing)/page.tsx"]
-M2["apps/web/src/app/(marketing)/contact/page.tsx"]
-M3["apps/web/src/app/(marketing)/pricing/page.tsx"]
-M4["apps/web/src/app/(marketing)/templates/page.tsx"]
+subgraph "Marketing Layer"
+ML["Marketing Layout<br/>(Header + Footer)"]
+MAbout["About Page<br/>Team + Values + Stats"]
+MFAQ["FAQ Page<br/>Accordion + WhatsApp Integration"]
+MTemplates["Templates Page<br/>Grid + Interactive Cards"]
+MH["HeroSection<br/>WhatsApp Animation + Stats"]
 end
-subgraph "Portal"
-P1["apps/web/src/app/(portal)/layout.tsx"]
-P2["apps/web/src/app/(portal)/app/onboarding/page.tsx"]
-P3["apps/web/src/app/(portal)/app/status/page.tsx"]
-P4["apps/web/src/app/(portal)/app/whatsapp/page.tsx"]
-P5["apps/web/src/app/(portal)/app/logs/page.tsx"]
+subgraph "Portal Layer"
+PL["Portal Layout<br/>Sidebar + Main Content"]
+POnboard["Onboarding Page<br/>Form + Setup Request"]
+PStatus["Status Dashboard<br/>Polling + QR Generation"]
+PWhatsApp["WhatsApp Integration<br/>Live Demo"]
+PLogs["Activity Logs<br/>Real-time Updates"]
+PSidebar["Enhanced Sidebar<br/>Navigation + User Menu"]
 end
-subgraph "Auth"
-A1["apps/web/src/app/api/auth/[...nextauth]/route.ts"]
-A2["apps/web/src/lib/auth.ts"]
-S1["apps/web/src/app/auth/signin/page.tsx"]
+subgraph "UI Component Library"
+UICore["Core Components<br/>Button, Card, Badge"]
+UILayout["Layout Components<br/>Container, SectionHeader"]
+UIGlobal["Global Styles<br/>African Futurism Theme"]
 end
-subgraph "API"
-API1["apps/web/src/app/api/portal/me/route.ts"]
-API2["apps/web/src/app/api/portal/setup-request/route.ts"]
-API3["apps/web/src/app/api/portal/tenant/current/status/route.ts"]
-API4["apps/web/src/app/api/portal/tenant/current/qr/route.ts"]
+subgraph "Authentication & API"
+Auth["NextAuth.js<br/>Google OAuth"]
+API["API Routes<br/>Control Plane Proxy"]
 end
-G["apps/web/src/app/globals.css"]
-Prov["apps/web/src/app/providers.tsx"]
-MW["apps/web/src/middleware.ts"]
-Prov --> M1
-Prov --> P1
-MW --> P1
-MW --> S1
-S1 --> A1
-A1 --> A2
-P1 --> P2
-P1 --> P3
-P1 --> P4
-P1 --> P5
-P2 --> API2
-P3 --> API3
-P3 --> API4
-P1 --> API1
+ML --> MAbout
+ML --> MFAQ
+ML --> MTemplates
+ML --> MH
+PL --> POnboard
+PL --> PStatus
+PL --> PWhatsApp
+PL --> PLogs
+PL --> PSidebar
+UICore --> ML
+UICore --> PL
+UILayout --> ML
+UILayout --> PL
+UIGlobal --> ML
+UIGlobal --> PL
+Auth --> PL
+API --> PL
 ```
 
 **Diagram sources**
-- [layout.tsx](file://apps/web/src/app/layout.tsx#L1-L25)
-- [providers.tsx](file://apps/web/src/app/providers.tsx#L1-L8)
-- [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
-- [auth.ts](file://apps/web/src/lib/auth.ts#L1-L76)
+- [marketing layout.tsx](file://apps/web/src/app/(marketing)/layout.tsx#L1-L17)
+- [Header.tsx](file://apps/web/src/components/layout/Header.tsx#L1-L132)
+- [Footer.tsx](file://apps/web/src/components/layout/Footer.tsx#L1-L171)
+- [HeroSection.tsx](file://apps/web/src/components/sections/HeroSection.tsx#L1-L468)
+- [Button.tsx](file://apps/web/src/components/ui/Button.tsx#L1-L57)
+- [Card.tsx](file://apps/web/src/components/ui/Card.tsx#L1-L71)
+- [Badge.tsx](file://apps/web/src/components/ui/Badge.tsx#L1-L43)
+- [Container.tsx](file://apps/web/src/components/ui/Container.tsx#L1-L28)
+- [SectionHeader.tsx](file://apps/web/src/components/ui/SectionHeader.tsx#L1-L42)
+- [portal layout.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
 - [Sidebar.tsx](file://apps/web/src/components/portal/Sidebar.tsx#L1-L69)
-- [page.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
-- [page.tsx](file://apps/web/src/app/auth/signin/page.tsx#L1-L37)
-- [route.ts](file://apps/web/src/app/api/auth/[...nextauth]/route.ts#L1-L7)
-- [route.ts](file://apps/web/src/app/api/portal/me/route.ts#L1-L35)
-- [route.ts](file://apps/web/src/app/api/portal/setup-request/route.ts#L1-L40)
-- [page.tsx](file://apps/web/src/app/(portal)/app/onboarding/page.tsx#L1-L115)
-- [page.tsx](file://apps/web/src/app/(portal)/app/status/page.tsx#L1-L160)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
-- [globals.css](file://apps/web/src/app/globals.css#L1-L20)
 
 **Section sources**
-- [layout.tsx](file://apps/web/src/app/layout.tsx#L1-L25)
-- [providers.tsx](file://apps/web/src/app/providers.tsx#L1-L8)
-- [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
-- [auth.ts](file://apps/web/src/lib/auth.ts#L1-L76)
-- [Sidebar.tsx](file://apps/web/src/components/portal/Sidebar.tsx#L1-L69)
-- [page.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
-- [page.tsx](file://apps/web/src/app/auth/signin/page.tsx#L1-L37)
-- [route.ts](file://apps/web/src/app/api/auth/[...nextauth]/route.ts#L1-L7)
-- [route.ts](file://apps/web/src/app/api/portal/me/route.ts#L1-L35)
-- [route.ts](file://apps/web/src/app/api/portal/setup-request/route.ts#L1-L40)
-- [page.tsx](file://apps/web/src/app/(portal)/app/onboarding/page.tsx#L1-L115)
-- [page.tsx](file://apps/web/src/app/(portal)/app/status/page.tsx#L1-L160)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
-- [globals.css](file://apps/web/src/app/globals.css#L1-L20)
+- [marketing layout.tsx](file://apps/web/src/app/(marketing)/layout.tsx#L1-L17)
+- [portal layout.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
+- [Header.tsx](file://apps/web/src/components/layout/Header.tsx#L1-L132)
+- [Footer.tsx](file://apps/web/src/components/layout/Footer.tsx#L1-L171)
+- [HeroSection.tsx](file://apps/web/src/components/sections/HeroSection.tsx#L1-L468)
 
 ## Core Components
-- Providers wrapper initializes NextAuth session context for the app tree.
-- Root layout defines metadata and applies global Tailwind styles.
-- Middleware enforces authentication for portal routes and redirects based on setup state.
-- NextAuth configuration integrates Google OAuth, auto-provisions users and tenants, and enriches sessions.
-- Portal layout renders the sidebar and main content area for authenticated users.
-- Sidebar provides navigation links and a sign-out action.
-- Authentication pages handle sign-in and provider redirection.
-- API routes act as proxies to the control plane, passing internal keys and user identity.
+The application now features a comprehensive UI component library with sophisticated styling and animations:
+
+- **Layout Components**: Header with responsive navigation and mobile menu, Footer with social links and contact information
+- **Marketing Components**: HeroSection with WhatsApp animation, interactive statistics, and animated phone mockup
+- **UI Library**: Button component with multiple variants and sizes, Card component with glass effects and hover animations, Badge component with semantic variants
+- **Container Components**: Flexible container sizing for different content layouts
+- **Section Headers**: Consistent typography and alignment patterns across marketing pages
+- **Portal Components**: Enhanced sidebar navigation with user menu and active state management
 
 **Section sources**
-- [providers.tsx](file://apps/web/src/app/providers.tsx#L1-L8)
-- [layout.tsx](file://apps/web/src/app/layout.tsx#L1-L25)
-- [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
-- [auth.ts](file://apps/web/src/lib/auth.ts#L1-L76)
-- [page.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
-- [Sidebar.tsx](file://apps/web/src/components/portal/Sidebar.tsx#L1-L69)
-- [page.tsx](file://apps/web/src/app/auth/signin/page.tsx#L1-L37)
-- [route.ts](file://apps/web/src/app/api/auth/[...nextauth]/route.ts#L1-L7)
-- [route.ts](file://apps/web/src/app/api/portal/me/route.ts#L1-L35)
+- [Header.tsx](file://apps/web/src/components/layout/Header.tsx#L1-L132)
+- [Footer.tsx](file://apps/web/src/components/layout/Footer.tsx#L1-L171)
+- [HeroSection.tsx](file://apps/web/src/components/sections/HeroSection.tsx#L1-L468)
+- [Button.tsx](file://apps/web/src/components/ui/Button.tsx#L1-L57)
+- [Card.tsx](file://apps/web/src/components/ui/Card.tsx#L1-L71)
+- [Badge.tsx](file://apps/web/src/components/ui/Badge.tsx#L1-L43)
+- [Container.tsx](file://apps/web/src/components/ui/Container.tsx#L1-L28)
+- [SectionHeader.tsx](file://apps/web/src/components/ui/SectionHeader.tsx#L1-L42)
 
 ## Architecture Overview
-The frontend uses a dual-layer architecture:
-- Presentation layer: Next.js App Router with route groups for marketing and portal.
-- Authentication and data layer: NextAuth.js for identity and session management, middleware for routing policies, and API routes for control plane integration.
+The frontend maintains a dual-layer architecture with enhanced UI components and responsive design patterns:
 
 ```mermaid
 graph TB
 Client["Browser"]
-NextAuth["NextAuth.js"]
-MW["Middleware"]
-PortalLayout["Portal Layout"]
-Sidebar["Sidebar"]
-Pages["Portal Pages<br/>Onboarding, Status, WhatsApp, Logs"]
-API["API Routes"]
-ControlPlane["Control Plane Backend"]
-Client --> NextAuth
-NextAuth --> MW
-MW --> PortalLayout
-PortalLayout --> Sidebar
-PortalLayout --> Pages
-Pages --> API
-API --> ControlPlane
+UI["UI Component Library<br/>Buttons, Cards, Badges"]
+Layout["Layout System<br/>Header, Footer, Containers"]
+Marketing["Marketing Pages<br/>About, FAQ, Templates"]
+Portal["Portal Interface<br/>Onboarding, Status, WhatsApp"]
+Auth["NextAuth.js<br/>Google OAuth"]
+API["API Routes<br/>Control Plane Proxy"]
+Client --> UI
+Client --> Layout
+UI --> Marketing
+UI --> Portal
+Layout --> Marketing
+Layout --> Portal
+Marketing --> Auth
+Portal --> Auth
+Portal --> API
+API --> ControlPlane["Control Plane Backend"]
 ```
 
 **Diagram sources**
-- [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
-- [page.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
-- [Sidebar.tsx](file://apps/web/src/components/portal/Sidebar.tsx#L1-L69)
-- [page.tsx](file://apps/web/src/app/(portal)/app/onboarding/page.tsx#L1-L115)
-- [page.tsx](file://apps/web/src/app/(portal)/app/status/page.tsx#L1-L160)
-- [route.ts](file://apps/web/src/app/api/portal/me/route.ts#L1-L35)
-- [route.ts](file://apps/web/src/app/api/portal/setup-request/route.ts#L1-L40)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
+- [Button.tsx](file://apps/web/src/components/ui/Button.tsx#L1-L57)
+- [Header.tsx](file://apps/web/src/components/layout/Header.tsx#L1-L132)
+- [Footer.tsx](file://apps/web/src/components/layout/Footer.tsx#L1-L171)
+- [about page.tsx](file://apps/web/src/app/(marketing)/about/page.tsx#L1-L472)
+- [faq page.tsx](file://apps/web/src/app/(marketing)/faq/page.tsx#L1-L153)
+- [templates page.tsx](file://apps/web/src/app/(marketing)/templates/page.tsx#L1-L252)
+- [portal layout.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
 
 ## Detailed Component Analysis
 
 ### Authentication and Authorization
-- NextAuth configuration:
-  - Uses Google OAuth provider with environment credentials.
-  - Automatically creates a tenant and user on first sign-in.
-  - Enriches session with user ID, tenant ID, role, and setup request presence.
-  - Redirects new users to onboarding after sign-in.
-- Authentication routes:
-  - Provider endpoint is exposed via NextAuth handler.
-  - Sign-in page checks for existing session and lists providers.
-- Middleware:
-  - Protects portal routes and redirects unauthenticated users to sign-in.
-  - Redirects authenticated users to onboarding if no setup request exists.
-  - Redirects users on onboarding to status once a setup request exists.
+The authentication system remains robust with Google OAuth integration and enhanced session management:
 
-```mermaid
-sequenceDiagram
-participant U as "User"
-participant S as "Sign-In Page"
-participant NA as "NextAuth Handler"
-participant AD as "Auth Adapter"
-participant MW as "Middleware"
-participant PL as "Portal Layout"
-U->>S : "Open /auth/signin"
-S->>NA : "Click Google provider"
-NA->>AD : "Validate user via Google"
-AD-->>NA : "User info"
-NA-->>U : "Redirect to /app/onboarding"
-U->>MW : "Navigate to /app"
-MW-->>U : "Redirect to /app/onboarding"
-U->>PL : "Access portal after onboarding"
-```
-
-**Diagram sources**
-- [page.tsx](file://apps/web/src/app/auth/signin/page.tsx#L1-L37)
-- [route.ts](file://apps/web/src/app/api/auth/[...nextauth]/route.ts#L1-L7)
-- [auth.ts](file://apps/web/src/lib/auth.ts#L1-L76)
-- [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
-- [page.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
+- NextAuth configuration with Google OAuth provider and automatic tenant/user provisioning
+- Session enrichment with user ID, tenant ID, role, and setup request presence
+- Middleware protection for portal routes with conditional redirects based on setup state
+- Enhanced sign-in page with provider selection and session validation
 
 **Section sources**
 - [auth.ts](file://apps/web/src/lib/auth.ts#L1-L76)
 - [route.ts](file://apps/web/src/app/api/auth/[...nextauth]/route.ts#L1-L7)
-- [page.tsx](file://apps/web/src/app/auth/signin/page.tsx#L1-L37)
+- [signin page.tsx](file://apps/web/src/app/auth/signin/page.tsx#L1-L37)
 - [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
 
-### Portal Navigation and Sidebar
-- Sidebar displays navigation items and highlights the active route.
-- Provides user profile display and a sign-out action.
-- Fixed layout on large screens with a main content area offset.
+### Portal Navigation and Enhanced Sidebar
+The portal interface features an improved sidebar with better navigation and user experience:
 
-```mermaid
-flowchart TD
-Start(["Render Sidebar"]) --> Nav["Render Navigation Items"]
-Nav --> Active{"Is Item Active?"}
-Active --> |Yes| Highlight["Apply Active Styles"]
-Active --> |No| Hover["Apply Hover Styles"]
-Hover --> End(["Done"])
-Highlight --> End
-```
-
-**Diagram sources**
-- [Sidebar.tsx](file://apps/web/src/components/portal/Sidebar.tsx#L1-L69)
-- [page.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
+- Fixed layout on large screens with 72-unit left padding for sidebar
+- Enhanced navigation items with active state highlighting
+- User profile display with avatar and role information
+- Improved responsive behavior and hover states
 
 **Section sources**
+- [portal layout.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
 - [Sidebar.tsx](file://apps/web/src/components/portal/Sidebar.tsx#L1-L69)
-- [page.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
 
-### Onboarding Flow
-- Collects business details and submission preferences.
-- Submits a setup request to the control plane via an API route.
-- Navigates to status after successful submission.
+### Onboarding Flow with Enhanced UI
+The onboarding process now features a modern form interface with validation:
 
-```mermaid
-sequenceDiagram
-participant U as "User"
-participant OP as "Onboarding Page"
-participant API as "Setup Request API"
-participant CP as "Control Plane"
-U->>OP : "Fill form and submit"
-OP->>API : "POST /api/portal/setup-request"
-API->>CP : "Forward with internal key and user email"
-CP-->>API : "Setup request accepted"
-API-->>OP : "Success response"
-OP-->>U : "Redirect to /app/status"
-```
+- Comprehensive business information collection form
+- Template selection with booking, ecommerce, and support options
+- WhatsApp number validation and language preference
+- Loading states and error handling during submission
 
-**Diagram sources**
-- [page.tsx](file://apps/web/src/app/(portal)/app/onboarding/page.tsx#L1-L115)
+**Section sources**
+- [onboarding page.tsx](file://apps/web/src/app/(portal)/app/onboarding/page.tsx#L1-L115)
 - [route.ts](file://apps/web/src/app/api/portal/setup-request/route.ts#L1-L40)
 
+### Status Dashboard and Real-time Updates
+The status dashboard provides comprehensive tenant monitoring with live updates:
+
+- Real-time polling for tenant and setup status
+- Animated status indicators with color-coded feedback
+- QR code generation for WhatsApp connection
+- Navigation assistance based on current state
+
 **Section sources**
-- [page.tsx](file://apps/web/src/app/(portal)/app/onboarding/page.tsx#L1-L115)
-- [route.ts](file://apps/web/src/app/api/portal/setup-request/route.ts#L1-L40)
-
-### Status Dashboard and Polling
-- Periodically polls the control plane for tenant and setup status.
-- Renders status cards with color-coded indicators.
-- Provides navigation to next steps based on state.
-
-```mermaid
-sequenceDiagram
-participant U as "User"
-participant SP as "Status Page"
-participant API as "Status API"
-participant CP as "Control Plane"
-U->>SP : "Open /app/status"
-loop Every 10 seconds
-SP->>API : "GET /api/portal/tenant/current/status"
-API->>CP : "Forward with internal key and user email"
-CP-->>API : "Status payload"
-API-->>SP : "JSON status"
-SP-->>U : "Update UI"
-end
-```
-
-**Diagram sources**
-- [page.tsx](file://apps/web/src/app/(portal)/app/status/page.tsx#L1-L160)
+- [status page.tsx](file://apps/web/src/app/(portal)/app/status/page.tsx#L1-L160)
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-
-**Section sources**
-- [page.tsx](file://apps/web/src/app/(portal)/app/status/page.tsx#L1-L160)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-
-### QR Generation Endpoint
-- Exposes a route to fetch a QR code for WhatsApp connection.
-- Proxies to the control plane with appropriate headers.
-
-```mermaid
-sequenceDiagram
-participant U as "User"
-participant WP as "WhatsApp Page"
-participant API as "QR API"
-participant CP as "Control Plane"
-U->>WP : "Open /app/whatsapp"
-WP->>API : "GET /api/portal/tenant/current/qr"
-API->>CP : "Forward with internal key and user email"
-CP-->>API : "QR image or data"
-API-->>WP : "Return QR"
-WP-->>U : "Display QR"
-```
-
-**Diagram sources**
-- [page.tsx](file://apps/web/src/app/(portal)/app/status/page.tsx#L1-L160)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
-
-**Section sources**
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
 
 ### API Integration Patterns
-- All portal API routes:
-  - Retrieve the current session.
-  - Validate presence of user email.
-  - Forward requests to the control plane with:
-    - x-portal-key header for service-to-service trust.
-    - x-user-email header to identify the acting user.
-  - Return standardized JSON responses or propagate control plane errors.
+All portal API routes maintain consistent patterns with enhanced error handling:
 
-```mermaid
-flowchart TD
-A["Client Request"] --> B["API Route"]
-B --> C["getServerSession()"]
-C --> D{"Has user email?"}
-D --> |No| E["Return 401 Unauthorized"]
-D --> |Yes| F["Fetch from Control Plane"]
-F --> G{"Response OK?"}
-G --> |No| H["Return control plane error"]
-G --> |Yes| I["Return JSON response"]
-```
-
-**Diagram sources**
-- [route.ts](file://apps/web/src/app/api/portal/me/route.ts#L1-L35)
-- [route.ts](file://apps/web/src/app/api/portal/setup-request/route.ts#L1-L40)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
+- Server-side session validation with user email verification
+- Control plane proxy with proper header forwarding
+- Standardized JSON response formats and error propagation
+- Internal key authentication for service-to-service communication
 
 **Section sources**
 - [route.ts](file://apps/web/src/app/api/portal/me/route.ts#L1-L35)
@@ -362,105 +250,210 @@ G --> |Yes| I["Return JSON response"]
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
 
-### Responsive Design and Layout
-- Global Tailwind CSS is imported in the root layout.
-- Portal layout uses a left sidebar on large screens and a main content area.
-- Marketing pages use centered card layouts with shadows and spacing.
+## UI Redesign and African Futurism Theme
 
-```mermaid
-graph TB
-L["Root Layout<br/>globals.css"] --> P["Portal Layout<br/>Sidebar + Content"]
-L --> M["Marketing Pages<br/>Centered Cards"]
-P --> S["Sidebar<br/>Fixed on large screens"]
-P --> C["Main Content<br/>Offset padding"]
-```
+### Color Palette and Design System
+The application implements a sophisticated African Futurism color scheme with carefully selected primary, secondary, and accent colors:
 
-**Diagram sources**
-- [layout.tsx](file://apps/web/src/app/layout.tsx#L1-L25)
-- [globals.css](file://apps/web/src/app/globals.css#L1-L20)
-- [page.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
-- [Sidebar.tsx](file://apps/web/src/components/portal/Sidebar.tsx#L1-L69)
+- **Primary Colors**: Emerald green spectrum (#064e3b to #ecfdf5) representing growth and sustainability
+- **Secondary Colors**: Purple gradient (#4c1d95 to #f5f3ff) symbolizing innovation and creativity
+- **Accent Colors**: Amber yellow (#78350f to #fffbeb) evoking warmth and energy
+- **Dark Theme**: Deep blue-gray (#0f172a to #f8fafc) providing excellent contrast for dark mode
+
+### Typography and Visual Elements
+The design system emphasizes modern typography and geometric patterns:
+
+- **Headings**: Space Grotesk font for futuristic aesthetic
+- **Body Text**: Inter font for excellent readability
+- **Patterns**: Custom circuit board, dot grid, and Kigengé textile patterns
+- **Effects**: Glass morphism, gradient overlays, and subtle glow effects
+
+### Motion and Animation Framework
+Sophisticated animation system enhances user experience:
+
+- **Framer Motion**: Smooth entrance animations and hover effects
+- **Typing Indicators**: Animated dots with staggered timing
+- **Floating Elements**: Continuous motion with easing functions
+- **Interactive Feedback**: Scale transforms and shadow enhancements
 
 **Section sources**
-- [layout.tsx](file://apps/web/src/app/layout.tsx#L1-L25)
-- [globals.css](file://apps/web/src/app/globals.css#L1-L20)
-- [page.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
-- [Sidebar.tsx](file://apps/web/src/components/portal/Sidebar.tsx#L1-L69)
+- [globals.css](file://apps/web/src/app/globals.css#L7-L56)
+- [globals.css](file://apps/web/src/app/globals.css#L154-L184)
+- [HeroSection.tsx](file://apps/web/src/components/sections/HeroSection.tsx#L203-L218)
+
+## New Marketing Pages
+
+### About Page - Team and Values Showcase
+The About page presents the company story with rich visual storytelling:
+
+- **Hero Section**: Full-screen background with geometric overlay patterns
+- **Team Profiles**: Interactive cards with hover effects and social links
+- **Values Display**: Animated feature cards with custom vector icons
+- **Statistics Section**: Animated counters with African-inspired backgrounds
+- **Mission/Vision**: Dual-card layout with decorative patterns
+
+### FAQ Page - Interactive Knowledge Base
+The FAQ page features an accordion system with modern styling:
+
+- **Animated Accordion**: Smooth expand/collapse with rotation indicators
+- **WhatsApp Integration**: Direct chat button with social media branding
+- **Gradient Styling**: Secondary color accents for visual hierarchy
+- **Responsive Design**: Mobile-first approach with touch-friendly interactions
+
+### Templates Page - Interactive Showcase
+The Templates page displays business solutions with engaging presentations:
+
+- **Template Grid**: Responsive card layout with hover animations
+- **Feature Tags**: Interactive badges with color coding
+- **Popular Templates**: Highlighted sections with special badges
+- **Custom Solutions**: Call-to-action for bespoke implementations
+
+**Section sources**
+- [about page.tsx](file://apps/web/src/app/(marketing)/about/page.tsx#L1-L472)
+- [faq page.tsx](file://apps/web/src/app/(marketing)/faq/page.tsx#L1-L153)
+- [templates page.tsx](file://apps/web/src/app/(marketing)/templates/page.tsx#L1-L252)
+
+## Enhanced UI Component Library
+
+### Button Component System
+Comprehensive button system with multiple variants and states:
+
+- **Variants**: Primary (gradient emerald), Secondary (gradient purple), Outline (transparent), Ghost (minimal)
+- **Sizes**: Small (sm), Medium (md), Large (lg) with proportional scaling
+- **States**: Loading indicators, hover effects, disabled states
+- **Accessibility**: Proper focus states and keyboard navigation
+
+### Card Component Architecture
+Flexible card system supporting various content types:
+
+- **Glass Cards**: Frosted glass effect with backdrop blur
+- **Gradient Cards**: Subtle directional gradients for depth
+- **Interactive States**: Hover scaling, border transitions, shadow enhancements
+- **Motion Integration**: Framer Motion compatibility for smooth animations
+
+### Badge Component System
+Semantic badge system for status and categorization:
+
+- **Color Variants**: Primary, Secondary, Accent, Success, Warning, Error
+- **Size Options**: Small and medium variants
+- **Border Styling**: Subtle borders with background fills
+- **Consistent Spacing**: Proper padding and rounded corners
+
+### Layout and Container Components
+Structured layout system for consistent page design:
+
+- **Container Component**: Flexible width constraints with responsive breakpoints
+- **Section Header**: Consistent typography hierarchy with optional badges
+- **Responsive Grids**: Mobile-first grid system with appropriate gutters
+
+**Section sources**
+- [Button.tsx](file://apps/web/src/components/ui/Button.tsx#L1-L57)
+- [Card.tsx](file://apps/web/src/components/ui/Card.tsx#L1-L71)
+- [Badge.tsx](file://apps/web/src/components/ui/Badge.tsx#L1-L43)
+- [Container.tsx](file://apps/web/src/components/ui/Container.tsx#L1-L28)
+- [SectionHeader.tsx](file://apps/web/src/components/ui/SectionHeader.tsx#L1-L42)
+
+## Layout System and Navigation
+
+### Header Component
+Modern navigation bar with responsive design:
+
+- **Desktop Navigation**: Hidden on mobile with hamburger menu
+- **Mobile Menu**: Animated slide-down with backdrop blur
+- **Brand Identity**: Gradient logo with African-inspired styling
+- **Call-to-Action**: Prominent buttons for conversion
+
+### Footer Component
+Comprehensive footer with multiple sections:
+
+- **Multi-column Layout**: Product, company, legal, and social sections
+- **Social Integration**: WhatsApp direct chat and social media links
+- **Contact Information**: Prominent phone number with WhatsApp integration
+- **Local Identity**: Tanzanian pride with country-specific messaging
+
+### Marketing Layout
+Consistent layout framework for marketing pages:
+
+- **Fixed Header**: Persistent navigation with glass effect
+- **Full-width Content**: Unrestricted content width for marketing materials
+- **Footer Integration**: Full-width footer spanning entire viewport
+- **Responsive Breakpoints**: Optimized for all device sizes
+
+**Section sources**
+- [Header.tsx](file://apps/web/src/components/layout/Header.tsx#L1-L132)
+- [Footer.tsx](file://apps/web/src/components/layout/Footer.tsx#L1-L171)
+- [marketing layout.tsx](file://apps/web/src/app/(marketing)/layout.tsx#L1-L17)
 
 ## Dependency Analysis
-Key dependencies and relationships:
-- Providers wrap the app tree to enable session context.
-- Middleware depends on NextAuth’s withAuth helper and guards portal routes.
-- Portal layout depends on session retrieval and renders the sidebar.
-- API routes depend on NextAuth session and control plane environment variables.
-- Sidebar depends on Next.js navigation primitives and NextAuth client hooks.
+The enhanced component library creates a cohesive dependency structure:
 
 ```mermaid
 graph LR
-Providers["Providers"] --> PortalLayout["Portal Layout"]
-Middleware["Middleware"] --> PortalLayout
-PortalLayout --> Sidebar["Sidebar"]
-PortalLayout --> Pages["Portal Pages"]
-Pages --> APIRoutes["API Routes"]
-APIRoutes --> ControlPlane["Control Plane"]
-AuthConfig["NextAuth Config"] --> Providers
-AuthConfig --> Middleware
-AuthConfig --> APIRoutes
+UI["UI Component Library"] --> Marketing["Marketing Pages"]
+UI --> Portal["Portal Interface"]
+Layout["Layout Components"] --> Marketing
+Layout --> Portal
+Components["Individual Components"] --> UI
+Animations["Animation System"] --> UI
+Styling["Global Styling"] --> UI
+Styling --> Layout
+Auth["Authentication"] --> Portal
+API["API Routes"] --> Portal
 ```
 
 **Diagram sources**
-- [providers.tsx](file://apps/web/src/app/providers.tsx#L1-L8)
-- [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
-- [page.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
-- [Sidebar.tsx](file://apps/web/src/components/portal/Sidebar.tsx#L1-L69)
-- [page.tsx](file://apps/web/src/app/(portal)/app/onboarding/page.tsx#L1-L115)
-- [page.tsx](file://apps/web/src/app/(portal)/app/status/page.tsx#L1-L160)
-- [route.ts](file://apps/web/src/app/api/portal/me/route.ts#L1-L35)
-- [auth.ts](file://apps/web/src/lib/auth.ts#L1-L76)
-
-**Section sources**
-- [providers.tsx](file://apps/web/src/app/providers.tsx#L1-L8)
-- [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
-- [page.tsx](file://apps/web/src/app/(portal)/layout.tsx#L1-L30)
-- [Sidebar.tsx](file://apps/web/src/components/portal/Sidebar.tsx#L1-L69)
-- [page.tsx](file://apps/web/src/app/(portal)/app/onboarding/page.tsx#L1-L115)
-- [page.tsx](file://apps/web/src/app/(portal)/app/status/page.tsx#L1-L160)
-- [route.ts](file://apps/web/src/app/api/portal/me/route.ts#L1-L35)
-- [auth.ts](file://apps/web/src/lib/auth.ts#L1-L76)
+- [Button.tsx](file://apps/web/src/components/ui/Button.tsx#L1-L57)
+- [Card.tsx](file://apps/web/src/components/ui/Card.tsx#L1-L71)
+- [Header.tsx](file://apps/web/src/components/layout/Header.tsx#L1-L132)
+- [Footer.tsx](file://apps/web/src/components/layout/Footer.tsx#L1-L171)
+- [about page.tsx](file://apps/web/src/app/(marketing)/about/page.tsx#L1-L472)
 
 ## Performance Considerations
-- Client-side polling for status updates should be throttled and canceled on component unmount to avoid redundant network calls.
-- Use caching headers or local storage sparingly for non-sensitive data to reduce repeated fetches.
-- Lazy-load heavy components and images to improve initial render performance.
-- Minimize re-renders by keeping state scoped to pages and avoiding unnecessary prop drilling.
+The redesigned application maintains optimal performance through:
+
+- **Component Reusability**: Shared UI components reduce bundle size
+- **Lazy Loading**: Marketing page components load on demand
+- **Animation Optimization**: Hardware-accelerated transforms for smooth performance
+- **Image Optimization**: Proper sizing and lazy loading for marketing assets
+- **State Management**: Efficient component state with minimal re-renders
 
 ## Troubleshooting Guide
-Common issues and resolutions:
-- Unauthorized access to portal routes:
-  - Ensure the user is signed in and session is present.
-  - Verify middleware matcher and callback logic for portal routes.
-- Missing environment variables:
-  - Confirm CONTROL_PLANE_URL and PORTAL_INTERNAL_KEY are set for API routes.
-- Session enrichment problems:
-  - Check NextAuth callbacks for session augmentation and database relations.
-- Redirect loops:
-  - Review middleware logic for onboarding and status redirects based on setup request presence.
+Common issues and resolutions for the enhanced UI:
+
+- **Animation Performance**: Disable animations on low-power devices via prefers-reduced-motion
+- **Mobile Navigation**: Ensure hamburger menu works correctly across all screen sizes
+- **Color Contrast**: Verify sufficient contrast ratios for accessibility compliance
+- **Component Styling**: Check Tailwind CSS configuration for custom properties
+- **Layout Issues**: Validate responsive breakpoints and container constraints
 
 **Section sources**
-- [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
-- [route.ts](file://apps/web/src/app/api/portal/me/route.ts#L1-L35)
-- [auth.ts](file://apps/web/src/lib/auth.ts#L1-L76)
+- [globals.css](file://apps/web/src/app/globals.css#L1-L348)
+- [Button.tsx](file://apps/web/src/components/ui/Button.tsx#L1-L57)
+- [Card.tsx](file://apps/web/src/components/ui/Card.tsx#L1-L71)
 
 ## Conclusion
-The frontend provides a clean separation between marketing and portal experiences, robust authentication with Google OAuth, and a responsive layout with a fixed sidebar. API routes reliably proxy to the control plane while preserving user identity and enforcing internal trust boundaries. The onboarding and status dashboards offer a clear path for business owners to configure and monitor their WhatsApp automation.
+The enhanced Flow HQ frontend represents a significant evolution in user experience design, combining African Futurism aesthetics with modern web development practices. The comprehensive UI component library, sophisticated animation system, and responsive layout architecture create a premium user experience that effectively serves both marketing and portal use cases. The integration of advanced Tailwind CSS configurations and Framer Motion animations demonstrates the application's commitment to modern design principles while maintaining excellent performance and accessibility standards.
 
 ## Appendices
-- Environment variables used by API routes:
-  - CONTROL_PLANE_URL: Base URL of the control plane backend.
-  - PORTAL_INTERNAL_KEY: Internal key for service-to-service authentication.
+
+### Environment Variables
+- CONTROL_PLANE_URL: Base URL for control plane backend services
+- PORTAL_INTERNAL_KEY: Service-to-service authentication key
+
+### Color System Reference
+- Primary: Emerald green gradient (10b981 to ecfdf5)
+- Secondary: Purple gradient (8b5cf6 to f5f3ff)  
+- Accent: Amber yellow gradient (f59e0b to ffef9e)
+- Dark Theme: Blue-gray spectrum (0f172a to f8fafc)
+
+### Animation Properties
+- Transition Duration: 300ms for most interactive elements
+- Easing Functions: Ease-in-out for smooth motion
+- Motion Variants: Staggered animations for list items
+- Performance: Hardware acceleration for transform properties
 
 **Section sources**
 - [route.ts](file://apps/web/src/app/api/portal/me/route.ts#L1-L35)
 - [route.ts](file://apps/web/src/app/api/portal/setup-request/route.ts#L1-L40)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-- [route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
+- [globals.css](file://apps/web/src/app/globals.css#L7-L56)
+- [Button.tsx](file://apps/web/src/components/ui/Button.tsx#L24-L39)

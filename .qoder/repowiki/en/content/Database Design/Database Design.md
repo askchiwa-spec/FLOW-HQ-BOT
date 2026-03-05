@@ -16,11 +16,12 @@
 
 ## Update Summary
 **Changes Made**
-- Updated to reflect migration from non-Git managed database to fully Git-managed Prisma migration system
-- Added comprehensive database schema definition with seven core tables (tenants, tenant_configs, users, setup_requests, message_logs, worker_processes, whatsapp_sessions)
-- Documented complete migration infrastructure with initial migration file and migration lock
-- Enhanced multi-tenant isolation documentation with new tables and relationships
-- Updated schema evolution workflow to show Git-managed migration process
+- Updated to reflect the complete database schema established through Prisma migrations (20260224202826_init)
+- Documented comprehensive enum definitions for all domain-specific data types
+- Added detailed field definitions, data types, primary/foreign key relationships, and indexes
+- Enhanced multi-tenant data isolation documentation with complete schema coverage
+- Updated schema evolution workflow to show Git-managed migration process with complete initial migration
+- Added comprehensive data validation rules and constraints documentation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -36,12 +37,12 @@
 11. [Appendices](#appendices)
 
 ## Introduction
-This document describes the Flow HQ database schema and data model with a focus on multi-tenant isolation, entity relationships among Tenant, TenantConfig, WhatsAppSession, MessageLog, WorkerProcess, User, SetupRequest, and PortalEventLog tables, and operational aspects such as Git-managed schema evolution, validation rules, caching strategies, and performance considerations. The database has been migrated to a fully Git-managed Prisma migration system with seven core tables providing comprehensive multi-tenant messaging capabilities.
+This document describes the Flow HQ database schema and data model with a focus on multi-tenant isolation, entity relationships among Tenant, TenantConfig, WhatsAppSession, MessageLog, WorkerProcess, User, SetupRequest, and PortalEventLog tables, and operational aspects such as Git-managed schema evolution, validation rules, caching strategies, and performance considerations. The database has been migrated to a fully Git-managed Prisma migration system with eight core tables providing comprehensive multi-tenant messaging capabilities.
 
 ## Migration System Overview
 Flow HQ has transitioned from a non-Git managed database to a fully Git-managed Prisma migration system. The migration infrastructure includes:
 
-- **Initial Migration**: Complete database schema creation with seven core tables
+- **Initial Migration**: Complete database schema creation with eight core tables and comprehensive enum definitions
 - **Migration Lock**: Ensures migration consistency across environments
 - **Git Integration**: All migration files are version-controlled for traceability
 - **Schema Evolution**: Automated migration generation and deployment workflow
@@ -134,7 +135,19 @@ BOT --> DEDUP
 - [bot.ts](file://apps/worker/src/bot.ts#L1-L411)
 
 ## Core Components
-This section documents the seven core entities that form the foundation of Flow HQ's multi-tenant messaging platform.
+This section documents the eight core entities that form the foundation of Flow HQ's multi-tenant messaging platform.
+
+### Enum Definitions
+The schema defines comprehensive enum types for domain-specific data validation:
+
+**TenantStatus**: NEW, QR_PENDING, ACTIVE, PAUSED, ERROR
+**TemplateType**: BOOKING, ECOMMERCE, SUPPORT  
+**Language**: SW, EN
+**SessionState**: DISCONNECTED, QR_READY, CONNECTED
+**MessageDirection**: IN, OUT
+**WorkerStatus**: RUNNING, STOPPED, ERROR
+**UserRole**: OWNER, STAFF, ADMIN
+**SetupRequestStatus**: SUBMITTED, REVIEWING, APPROVED, ACTIVE, REJECTED
 
 ### Tenant
 - **Purpose**: Represents a customer account with comprehensive multi-tenant isolation
@@ -195,6 +208,7 @@ This section documents the seven core entities that form the foundation of Flow 
 - **Indexes**: composite index on (tenant_id, created_at) for efficient tenant-scoped event queries
 
 **Section sources**
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L10-L58)
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L178)
 
 ## Architecture Overview
@@ -408,7 +422,7 @@ Prisma-->>Web : "Tenant-scoped logs"
 ### Git-Managed Schema Evolution with Prisma
 - **Prisma client generator and datasource configured for PostgreSQL**
 - **Migration commands exposed via npm scripts** in the monorepo workspace
-- **Initial migration included**: Complete schema creation with seven core tables
+- **Initial migration included**: Complete schema creation with eight core tables and comprehensive enum definitions
 - **Migration lock**: Ensures migration consistency across environments
 - **Typical workflow**: Edit schema.prisma, run db:migrate to generate and apply migrations, then db:deploy to production
 
@@ -536,7 +550,7 @@ MIGRATION --> LOCK["migration_lock.toml"]
 - [rate-limiter.ts](file://apps/worker/src/utils/rate-limiter.ts#L78-L93)
 
 ## Conclusion
-The Flow HQ schema establishes robust multi-tenant isolation through tenant_id scoping, enforced by Prisma relations and validated by runtime tests. The migration to a Git-managed Prisma system provides comprehensive schema evolution capabilities with seven core tables supporting complete multi-tenant messaging, user management, setup workflows, and event logging. The MessageLog model's composite index and worker-side caching (dedup, rate limiting, reconnect) support high-throughput operations. Schema evolution follows Prisma's migration workflow, and operational scripts confirm isolation correctness. For production hardening, adopt partitioning, archival, and retention strategies aligned with tenant log growth.
+The Flow HQ schema establishes robust multi-tenant isolation through tenant_id scoping, enforced by Prisma relations and validated by runtime tests. The migration to a Git-managed Prisma system provides comprehensive schema evolution capabilities with eight core tables supporting complete multi-tenant messaging, user management, setup workflows, and event logging. The MessageLog model's composite index and worker-side caching (dedup, rate limiting, reconnect) support high-throughput operations. Schema evolution follows Prisma's migration workflow, and operational scripts confirm isolation correctness. For production hardening, adopt partitioning, archival, and retention strategies aligned with tenant log growth.
 
 ## Appendices
 
@@ -550,12 +564,23 @@ The Flow HQ schema establishes robust multi-tenant isolation through tenant_id s
 - **SetupRequest**: id, tenant_id, user_id, template_type, whatsapp_number, status, notes, timestamps; relations to Tenant, User
 - **PortalEventLog**: id, tenant_id, user_id, event_type, payload_json, created_at; composite index (tenant_id, created_at)
 
+### Enum Definitions Reference
+- **TenantStatus**: NEW, QR_PENDING, ACTIVE, PAUSED, ERROR
+- **TemplateType**: BOOKING, ECOMMERCE, SUPPORT
+- **Language**: SW, EN
+- **SessionState**: DISCONNECTED, QR_READY, CONNECTED
+- **MessageDirection**: IN, OUT
+- **WorkerStatus**: RUNNING, STOPPED, ERROR
+- **UserRole**: OWNER, STAFF, ADMIN
+- **SetupRequestStatus**: SUBMITTED, REVIEWING, APPROVED, ACTIVE, REJECTED
+
 ### Migration History
-- **Initial Migration (20260224202826)**: Complete schema creation with seven core tables
+- **Initial Migration (20260224202826)**: Complete schema creation with eight core tables and comprehensive enum definitions
 - **Migration Lock**: Ensures consistent migration state across environments
 - **Git Integration**: All migration files version-controlled for traceability
 
 **Section sources**
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L10-L58)
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L178)
 - [migration.sql](file://packages/shared/src/prisma/migrations/20260224202826_init/migration.sql#L25-L130)
 - [migration_lock.toml](file://packages/shared/src/prisma/migrations/migration_lock.toml#L1-L3)

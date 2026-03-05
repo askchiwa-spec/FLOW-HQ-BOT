@@ -15,10 +15,10 @@ export default async function PortalLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-dark-900">
       <PortalSidebar user={session.user} />
       <div className="lg:pl-72">
-        <main className="py-10">
+        <main className="py-10 min-h-screen">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             {children}
           </div>
