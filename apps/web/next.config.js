@@ -1,12 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async rewrites() {
-    return [
-      {
-        source: '/api/control-plane/:path*',
-        destination: 'http://localhost:3000/:path*',
-      },
-    ];
+  reactStrictMode: true,
+  experimental: {
+    serverComponentsExternalPackages: ['pino', 'pino-pretty', 'thread-stream'],
+  },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = config.externals || [];
+      if (Array.isArray(config.externals)) {
+        config.externals.push('pino', 'pino-pretty', 'thread-stream');
+      }
+    }
+    return config;
   },
 };
 

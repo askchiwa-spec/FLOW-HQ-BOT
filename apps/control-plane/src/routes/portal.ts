@@ -1,22 +1,22 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient, logger } from '@flowhq/shared';
+import { PrismaClient, logger } from '@chatisha/shared';
+import { startWorker } from '../provisioner';
 
 const router = Router();
 const prisma = new PrismaClient();
-
-const PORTAL_INTERNAL_KEY = process.env.PORTAL_INTERNAL_KEY || '';
 
 /**
  * Middleware to validate portal internal key
  */
 function portalAuthMiddleware(req: Request, res: Response, next: Function) {
   const portalKey = req.headers['x-portal-key'];
-  
+  const PORTAL_INTERNAL_KEY = process.env.PORTAL_INTERNAL_KEY;
+
   if (!PORTAL_INTERNAL_KEY) {
     logger.error('PORTAL_INTERNAL_KEY not configured');
     return res.status(500).json({ error: 'Portal not configured' });
   }
-  
+
   if (portalKey !== PORTAL_INTERNAL_KEY) {
     return res.status(401).json({ error: 'Invalid portal key' });
   }
@@ -95,13 +95,13 @@ router.post('/setup-request', portalAuthMiddleware, async (req: Request, res: Re
     }
     
     const { businessName, templateType, whatsappNumber, language } = req.body;
-    
-    // Update tenant name
+
+    // Update tenant name and phone number
     await prisma.tenant.update({
       where: { id: user.tenant.id },
-      data: { name: businessName },
+      data: { name: businessName, phone_number: whatsappNumber },
     });
-    
+
     // Create or update tenant config
     await prisma.tenantConfig.upsert({
       where: { tenant_id: user.tenant.id },
@@ -117,25 +117,19 @@ router.post('/setup-request', portalAuthMiddleware, async (req: Request, res: Re
         language: language || 'SW',
       },
     });
-    
-    // Create setup request
+
+    // Auto-approve: create setup request already in APPROVED state
     const setupRequest = await prisma.setupRequest.create({
       data: {
         tenant_id: user.tenant.id,
         user_id: user.id,
         template_type: templateType,
         whatsapp_number: whatsappNumber,
-        status: 'SUBMITTED',
+        status: 'APPROVED',
       },
     });
-    
-    // Update tenant status
-    await prisma.tenant.update({
-      where: { id: user.tenant.id },
-      data: { status: 'NEW' },
-    });
-    
-    // Log event
+
+    // Log submission event
     await prisma.portalEventLog.create({
       data: {
         tenant_id: user.tenant.id,
@@ -144,8 +138,19 @@ router.post('/setup-request', portalAuthMiddleware, async (req: Request, res: Re
         payload_json: { templateType, language, businessName },
       },
     });
-    
-    res.status(201).json(setupRequest);
+
+    // Auto-provision: start the worker immediately
+    const pm2Name = user.tenant.worker_process?.pm2_name || `worker-${user.tenant.id.slice(0, 8)}`;
+    const provisionResult = await startWorker(user.tenant.id, pm2Name, prisma);
+
+    if (provisionResult.success) {
+      logger.info({ tenantId: user.tenant.id }, 'Worker auto-provisioned on setup request');
+    } else {
+      // Worker failed to start but setup request is saved — admin can retry via dashboard
+      logger.error({ tenantId: user.tenant.id, error: provisionResult.error }, 'Auto-provision failed');
+    }
+
+    res.status(201).json({ ...setupRequest, workerStarted: provisionResult.success });
   } catch (error) {
     logger.error('Error creating setup request:', error);
     res.status(500).json({ error: 'Failed to create setup request' });

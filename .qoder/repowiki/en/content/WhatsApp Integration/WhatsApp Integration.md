@@ -15,8 +15,18 @@
 - [apps/worker/src/utils/reconnect.ts](file://apps/worker/src/utils/reconnect.ts)
 - [apps/worker/package.json](file://apps/worker/package.json)
 - [packages/shared/src/utils/logger.ts](file://packages/shared/src/utils/logger.ts)
-- [apps/control-plane/dist/server.js](file://apps/control-plane/dist/server.js)
+- [apps/control-plane/src/server.ts](file://apps/control-plane/src/server.ts)
+- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced WhatsApp connection flow documentation with step-by-step process
+- Improved QR code handling documentation with new state management
+- Added comprehensive coverage of new connection states (QR_READY, CONNECTED, CONNECTING)
+- Updated session state transitions with detailed flow diagrams
+- Enhanced frontend integration documentation with countdown and state indicators
+- Expanded troubleshooting guide with new state-specific scenarios
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -24,19 +34,23 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+6. [Enhanced Connection Flow](#enhanced-connection-flow)
+7. [Session States and Transitions](#session-states-and-transitions)
+8. [Dependency Analysis](#dependency-analysis)
+9. [Performance Considerations](#performance-considerations)
+10. [Troubleshooting Guide](#troubleshooting-guide)
+11. [Conclusion](#conclusion)
+12. [Appendices](#appendices)
 
 ## Introduction
-This document explains the WhatsApp Web API integration and automation built with the whatsapp-web.js library. It covers QR code authentication flow, session management and persistence, worker lifecycle, session states (DISCONNECTED, QR_READY, CONNECTED), automatic reconnection, message processing workflows, template-based response generation, and error handling strategies. It also provides guidance on Chrome/Chromium dependencies, executable path configuration, and system requirements for reliable operation.
+This document explains the WhatsApp Web API integration and automation built with the whatsapp-web.js library. It covers QR code authentication flow, session management and persistence, worker lifecycle, session states (DISCONNECTED, QR_READY, CONNECTED, CONNECTING), automatic reconnection, message processing workflows, template-based response generation, and error handling strategies. It also provides guidance on Chrome/Chromium dependencies, executable path configuration, and system requirements for reliable operation.
+
+**Updated** Enhanced with step-by-step connection flow, improved QR code handling, and comprehensive state management documentation.
 
 ## Project Structure
 The integration spans three primary areas:
-- Frontend portal for QR display and status monitoring
-- Control plane backend for orchestration and session state
+- Frontend portal for QR display and status monitoring with enhanced state indicators
+- Control plane backend for orchestration and session state management
 - Worker process that runs the WhatsApp client, handles messages, and manages persistence
 
 ```mermaid
@@ -47,7 +61,8 @@ QRRoute["QR Route<br/>(apps/web/.../qr/route.ts)"]
 StatusRoute["Status Route<br/>(apps/web/.../status/route.ts)"]
 end
 subgraph "Control Plane"
-CP["Control Plane Server<br/>(apps/control-plane/.../server.js)"]
+CP["Control Plane Server<br/>(apps/control-plane/.../server.ts)"]
+PortalRoutes["Portal Routes<br/>(apps/control-plane/.../routes/portal.ts)"]
 end
 subgraph "Worker"
 WorkerMain["Worker Entry<br/>(apps/worker/.../worker.ts)"]
@@ -59,60 +74,61 @@ WP --> QRRoute
 WP --> StatusRoute
 QRRoute --> CP
 StatusRoute --> CP
-CP --> WorkerMain
+CP --> PortalRoutes
+PortalRoutes --> WorkerMain
 WorkerMain --> Bot
 Bot --> Templates
 Bot --> Utils
 ```
 
 **Diagram sources**
-- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L1-L115)
+- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L1-L163)
 - [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
 - [apps/web/src/app/api/portal/tenant/current/status/route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-- [apps/control-plane/dist/server.js](file://apps/control-plane/dist/server.js#L1-L108)
+- [apps/control-plane/src/server.ts](file://apps/control-plane/src/server.ts#L1-L89)
+- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L1-L246)
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L1-L46)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L1-L395)
-- [apps/worker/src/templates/index.ts](file://apps/worker/src/templates/index.ts#L1-L70)
-- [apps/worker/src/utils/chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L1-L140)
-- [apps/worker/src/utils/dedup.ts](file://apps/worker/src/utils/dedup.ts#L1-L93)
-- [apps/worker/src/utils/rate-limiter.ts](file://apps/worker/src/utils/rate-limiter.ts#L1-L110)
-- [apps/worker/src/utils/reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L1-L117)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L1-L411)
 
 **Section sources**
-- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L1-L115)
+- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L1-L163)
 - [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
 - [apps/web/src/app/api/portal/tenant/current/status/route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-- [apps/control-plane/dist/server.js](file://apps/control-plane/dist/server.js#L1-L108)
+- [apps/control-plane/src/server.ts](file://apps/control-plane/src/server.ts#L1-L89)
+- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L1-L246)
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L1-L46)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L1-L395)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L1-L411)
 
 ## Core Components
 - WhatsAppBot: Orchestrates the whatsapp-web.js client, event handlers, session state updates, message processing, rate limiting, deduplication, queueing, and reconnect logic.
 - Worker entry: Initializes environment, validates required variables, starts the bot, and handles graceful shutdown signals.
 - Templates: Provides template-based response generation based on tenant configuration (type, language, business name).
 - Utilities: ChatQueueManager (per-chat sequential processing), MessageDeduplicator (prevent duplicate processing), RateLimiter (outgoing reply throttling), ReconnectManager (exponential backoff).
-- Web Portal: Fetches QR and status from the control plane and renders connection state to the user.
+- Web Portal: Fetches QR and status from the control plane and renders connection state to the user with enhanced state indicators.
 - Control Plane: Validates environment, exposes endpoints for QR and status, and coordinates worker lifecycle.
 
+**Updated** Enhanced with new connection states and improved state management capabilities.
+
 **Section sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L1-L395)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L1-L411)
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L1-L46)
 - [apps/worker/src/templates/index.ts](file://apps/worker/src/templates/index.ts#L1-L70)
 - [apps/worker/src/utils/chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L1-L140)
 - [apps/worker/src/utils/dedup.ts](file://apps/worker/src/utils/dedup.ts#L1-L93)
 - [apps/worker/src/utils/rate-limiter.ts](file://apps/worker/src/utils/rate-limiter.ts#L1-L110)
 - [apps/worker/src/utils/reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L1-L117)
-- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L1-L115)
+- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L1-L163)
 - [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
 - [apps/web/src/app/api/portal/tenant/current/status/route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-- [apps/control-plane/dist/server.js](file://apps/control-plane/dist/server.js#L1-L108)
+- [apps/control-plane/src/server.ts](file://apps/control-plane/src/server.ts#L1-L89)
+- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L1-L246)
 
 ## Architecture Overview
-The system follows a client-server-worker pattern:
+The system follows a client-server-worker pattern with enhanced state management:
 - The web portal communicates with the control plane via internal keys and user sessions.
-- The control plane exposes endpoints for QR retrieval and status.
+- The control plane exposes endpoints for QR retrieval and status with comprehensive state tracking.
 - The worker process initializes the WhatsApp client, persists session data, and processes messages.
-- Session state is stored in the database and surfaced to the portal.
+- Session state is stored in the database and surfaced to the portal with real-time updates.
 
 ```mermaid
 sequenceDiagram
@@ -125,14 +141,14 @@ Browser->>Web : GET /api/portal/tenant/current/qr
 Web->>Control : Forward request with internal key
 Control->>Worker : Retrieve QR/state
 Control-->>Web : Return QR data/state
-Web-->>Browser : Render QR or status
+Web-->>Browser : Render QR or status with state indicators
 Worker->>WA : initialize()
 WA-->>Worker : emit "qr"
 Worker->>Control : Update state=QR_READY with QR dataURL
-Control-->>Browser : QR visible in portal
+Control-->>Browser : QR visible in portal with countdown
 WA-->>Worker : emit "ready"
 Worker->>Control : Update state=CONNECTED, last_seen_at
-Control-->>Browser : Status CONNECTED
+Control-->>Browser : Status CONNECTED with success indicator
 WA-->>Worker : emit "message"
 Worker->>Worker : De-duplicate, Queue, Rate-limit
 Worker->>Control : Log inbound/outbound messages
@@ -143,19 +159,19 @@ WA-->>Worker : sent
 **Diagram sources**
 - [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
 - [apps/web/src/app/api/portal/tenant/current/status/route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-- [apps/control-plane/dist/server.js](file://apps/control-plane/dist/server.js#L1-L108)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L210)
+- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L192-L216)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L226)
 
 ## Detailed Component Analysis
 
 ### WhatsAppBot: Client, Events, Persistence, and Recovery
 WhatsAppBot encapsulates:
 - Client initialization with LocalAuth and headless Chromium/Puppeteer options
-- Event handlers for QR, ready, message, and disconnected
-- Session state updates in the database
-- Heartbeat maintenance
+- Event handlers for QR, ready, message, and disconnected with enhanced state management
+- Session state updates in the database with comprehensive state tracking
+- Heartbeat maintenance with periodic status updates
 - Message processing pipeline with deduplication, queueing, and rate limiting
-- Automatic reconnection with exponential backoff
+- Automatic reconnection with exponential backoff and error state management
 
 ```mermaid
 classDiagram
@@ -216,17 +232,18 @@ WhatsAppBot --> ReconnectManager : "uses"
 - [apps/worker/src/utils/reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L14-L85)
 
 Key behaviors:
-- QR code handling: Converts QR string to a data URL and persists state=QR_READY.
+- QR code handling: Converts QR string to a data URL and persists state=QR_READY with enhanced error handling.
 - Ready state: Updates state=CONNECTED, sets ACTIVE tenant status, RUNNING worker status, loads configuration, starts heartbeat.
-- Disconnected: Updates DISCONNECTED state, stops heartbeat, triggers reconnect manager.
+- Disconnected: Updates DISCONNECTED state, stops heartbeat, triggers reconnect manager with comprehensive error logging.
+- Auth failure: Updates ERROR state for both tenant and worker process with detailed error messages.
 - Message handling: Logs inbound, checks rate limit, generates template-based response, logs outbound, updates last_seen_at.
-- Heartbeat: Periodically updates last_seen_at and worker status to keep the worker healthy.
+
+**Updated** Enhanced with auth_failure event handling and comprehensive state management.
 
 **Section sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L210)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L232-L315)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L317-L351)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L353-L394)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L226)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L228-L331)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L333-L409)
 
 ### Worker Lifecycle and Signals
 The worker entry script:
@@ -259,178 +276,117 @@ Bot->>DB : disconnect
 
 **Diagram sources**
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L1-L46)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L378-L393)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L394-L409)
 
 **Section sources**
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L1-L46)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L378-L393)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L394-L409)
 
-### QR Authentication Flow
-End-to-end QR authentication:
-- Worker emits QR event
-- QR is converted to data URL and persisted with state=QR_READY
-- Web portal polls QR endpoint and displays QR image
-- On successful scan, WhatsApp emits ready
-- Worker updates state=CONNECTED and marks tenant ACTIVE
+## Enhanced Connection Flow
+
+### Step-by-Step QR Authentication Process
+The enhanced connection flow provides a comprehensive step-by-step process with real-time state updates:
 
 ```mermaid
-sequenceDiagram
-participant Bot as "WhatsAppBot"
-participant DB as "Database"
-participant Portal as "Web Portal"
-participant API as "QR Route"
-Bot->>Bot : on("qr")
-Bot->>DB : update state=QR_READY, last_qr=dataURL
-API-->>Portal : return QR dataURL
-Portal->>Portal : render QR image
-Bot->>Bot : on("ready")
-Bot->>DB : update state=CONNECTED, last_seen_at=now
-Portal->>API : poll status
-API-->>Portal : state=CONNECTED
-Portal->>Portal : redirect to status
+flowchart TD
+Start(["Worker Start"]) --> Init["Initialize Client with LocalAuth"]
+Init --> QR["Wait for QR Event"]
+QR --> QRProcessing["Convert QR to Data URL"]
+QRProcessing --> SaveQR["Save QR with state=QR_READY"]
+SaveQR --> Portal["Portal Displays QR with Countdown"]
+Portal --> UserScan["User Scans QR with WhatsApp"]
+UserScan --> WAReady["WhatsApp Client Ready"]
+WAReady --> UpdateConnected["Update state=CONNECTED"]
+UpdateConnected --> SetupComplete["Setup Complete"]
+SetupComplete --> PortalRedirect["Auto-redirect to Status Page"]
+classDef default fill:#f9f9f9,stroke:#333,color:#000
 ```
 
 **Diagram sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L96)
-- [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
-- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L17-L48)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L151)
+- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L18-L48)
 
-**Section sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L96)
-- [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
-- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L17-L48)
-
-### Session States and Transitions
-Session states observed in the code:
-- DISCONNECTED: Emitted when the client disconnects; heartbeat stopped; reconnect initiated.
-- QR_READY: Persisted when QR is emitted; QR dataURL stored.
-- CONNECTED: Set when ready; tenant ACTIVE; worker RUNNING.
+### Frontend Integration with Enhanced State Management
+The web portal now provides comprehensive state indicators and real-time updates:
 
 ```mermaid
 stateDiagram-v2
 [*] --> DISCONNECTED
 DISCONNECTED --> QR_READY : "on('qr')"
-QR_READY --> CONNECTED : "on('ready')"
+QR_READY --> CONNECTING : "User scans QR"
+CONNECTING --> CONNECTED : "on('ready')"
 CONNECTED --> DISCONNECTED : "on('disconnected')"
+CONNECTING --> DISCONNECTED : "on('auth_failure')"
+state QR_READY {
+[*] --> WaitingForScan
+WaitingForScan --> QRRefresh : "Auto-refresh QR"
+}
+state CONNECTING {
+[*] --> Loading
+Loading --> Success : "Connection established"
+Loading --> Error : "Connection failed"
+}
 ```
 
 **Diagram sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L98-L135)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L169-L192)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L96)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L226)
+- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L81-L163)
+
+**Updated** Enhanced with CONNECTING state and comprehensive state transitions.
 
 **Section sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L98-L135)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L169-L192)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L96)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L226)
+- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L18-L163)
 
-### Automatic Reconnection Mechanism
-Exponential backoff reconnection:
-- Starts on disconnect; schedules attempts with increasing delays
-- Resets on successful ready event
-- Stops and resets on explicit stop or max attempts reached
+## Session States and Transitions
+
+### Comprehensive State Management
+The system now manages four distinct connection states with detailed transitions:
 
 ```mermaid
-flowchart TD
-Start(["Disconnected"]) --> Init["Initialize attemptCount=0, delay=initial"]
-Init --> Schedule["setTimeout(delay)"]
-Schedule --> Attempt{"Attempt < max?"}
-Attempt --> |Yes| TryReconnect["Call onReconnect()"]
-TryReconnect --> Success{"Success?"}
-Success --> |Yes| Reset["reset(): stop timers, reset counters"]
-Success --> |No| Backoff["delay = min(delay*multiplier, maxDelay)"]
-Backoff --> Schedule
-Attempt --> |No| MaxReached["onMaxAttemptsReached()"]
-Reset --> End(["Connected"])
-MaxReached --> End
+stateDiagram-v2
+[*] --> DISCONNECTED
+DISCONNECTED --> QR_READY : "on('qr')"
+QR_READY --> CONNECTING : "User scans QR"
+CONNECTING --> CONNECTED : "on('ready')"
+CONNECTING --> DISCONNECTED : "on('auth_failure')"
+CONNECTED --> DISCONNECTED : "on('disconnected')"
+DISCONNECTED --> ERROR : "Max reconnect attempts reached"
+state QR_READY {
+[*] --> QRDisplay
+QRDisplay --> QRRefresh : "Auto-refresh QR"
+QRDisplay --> QRScanned : "User scans QR"
+}
+state CONNECTING {
+[*] --> LoadingSpinner
+LoadingSpinner --> Success : "Connection established"
+LoadingSpinner --> Error : "Connection failed"
+}
+state ERROR {
+[*] --> AuthFailure
+AuthFailure --> Retry : "Manual retry"
+}
 ```
 
 **Diagram sources**
-- [apps/worker/src/utils/reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L44-L115)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L98-L226)
+- [apps/worker/src/utils/reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L87-L115)
+
+### State-Specific Behavior and UI Indicators
+Each state now has specific behavior and user interface indicators:
+
+- **DISCONNECTED**: Worker is offline, heartbeat stopped, reconnect process initiated
+- **QR_READY**: QR code available for scanning, portal displays QR with countdown
+- **CONNECTING**: Connection in progress, portal shows loading spinner and connecting badge
+- **CONNECTED**: Active connection, portal shows success state with auto-redirect
+- **ERROR**: Critical error state, requires manual intervention
+
+**Updated** Added CONNECTING state and comprehensive state management with UI indicators.
 
 **Section sources**
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L98-L226)
+- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L124-L163)
 - [apps/worker/src/utils/reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L14-L117)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L37-L56)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L169-L192)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L98-L135)
-
-### Message Processing Workflow
-Template-based response generation:
-- Load tenant configuration (template type, language, business name)
-- De-duplicate incoming message IDs
-- Enqueue per-chat for sequential processing
-- Apply rate limiting for outgoing replies
-- Generate response using templates
-- Log inbound and outbound messages
-- Update last_seen_at
-
-```mermaid
-flowchart TD
-Enter(["Message Received"]) --> SelfCheck{"fromMe?"}
-SelfCheck --> |Yes| Drop["Skip"]
-SelfCheck --> |No| Dedup["Check Duplicate"]
-Dedup --> Dup{"Duplicate?"}
-Dup --> |Yes| Drop
-Dup --> |No| Enqueue["Enqueue per-chat"]
-Enqueue --> RateLimit["Check Rate Limit"]
-RateLimit --> Allowed{"Allowed?"}
-Allowed --> |No| Warn["Send rate limit warning (once)"]
-Allowed --> |Yes| LoadCfg["Load Config"]
-LoadCfg --> GenResp["Generate Template Response"]
-GenResp --> Send["Reply to sender"]
-Send --> LogIn["Log inbound message"]
-LogIn --> LogOut["Log outbound message"]
-LogOut --> Update["Update last_seen_at"]
-Update --> Exit(["Done"])
-```
-
-**Diagram sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L137-L167)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L232-L315)
-- [apps/worker/src/templates/index.ts](file://apps/worker/src/templates/index.ts#L9-L23)
-- [apps/worker/src/templates/booking.ts](file://apps/worker/src/templates/booking.ts#L1-L22)
-- [apps/worker/src/utils/dedup.ts](file://apps/worker/src/utils/dedup.ts#L28-L46)
-- [apps/worker/src/utils/chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L35-L68)
-- [apps/worker/src/utils/rate-limiter.ts](file://apps/worker/src/utils/rate-limiter.ts#L32-L73)
-
-**Section sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L137-L167)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L232-L315)
-- [apps/worker/src/templates/index.ts](file://apps/worker/src/templates/index.ts#L1-L70)
-- [apps/worker/src/templates/booking.ts](file://apps/worker/src/templates/booking.ts#L1-L22)
-- [apps/worker/src/utils/dedup.ts](file://apps/worker/src/utils/dedup.ts#L1-L93)
-- [apps/worker/src/utils/chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L1-L140)
-- [apps/worker/src/utils/rate-limiter.ts](file://apps/worker/src/utils/rate-limiter.ts#L1-L110)
-
-### Template-Based Responses
-Response generation depends on:
-- Template type: BOOKING, ECOMMERCE, SUPPORT
-- Business name and language (SW/EN)
-- Intent detection for booking-related keywords
-
-```mermaid
-classDiagram
-class TemplateConfig {
-+template_type : "BOOKING"|"ECOMMERCE"|"SUPPORT"
-+business_name : string
-+language : "SW"|"EN"
-}
-class Templates {
-+getResponse(message, config) string
-}
-class BookingTemplate {
-+getBookingResponse(message, businessName, language) string
-}
-Templates --> BookingTemplate : "delegates for BOOKING"
-```
-
-**Diagram sources**
-- [apps/worker/src/templates/index.ts](file://apps/worker/src/templates/index.ts#L3-L23)
-- [apps/worker/src/templates/booking.ts](file://apps/worker/src/templates/booking.ts#L1-L22)
-
-**Section sources**
-- [apps/worker/src/templates/index.ts](file://apps/worker/src/templates/index.ts#L1-L70)
-- [apps/worker/src/templates/booking.ts](file://apps/worker/src/templates/booking.ts#L1-L22)
 
 ## Dependency Analysis
 External libraries and runtime dependencies:
@@ -469,54 +425,67 @@ Shared --> Pino["pino + transports"]
 - Per-chat queueing prevents race conditions and ensures ordered processing per conversation.
 - De-duplication avoids redundant processing of identical messages.
 - Rate limiting controls outbound reply frequency to prevent throttling.
-- Heartbeat keeps the worker alive and monitored.
+- Heartbeat keeps the worker alive and monitored with configurable intervals.
 - Exponential backoff reduces load during reconnection storms.
-
-[No sources needed since this section provides general guidance]
+- Enhanced state management reduces unnecessary reconnection attempts.
 
 ## Troubleshooting Guide
 
-Common issues and resolutions:
-- QR code not displaying or refreshing
+### Enhanced State-Specific Troubleshooting
+Common issues and resolutions with state-specific guidance:
+
+#### QR State Issues
+- **QR code not displaying or refreshing**
   - Verify QR endpoint returns data and state transitions to QR_READY.
   - Ensure the worker is running and connected to the database.
   - Confirm the portal route forwards internal key and user email headers.
+  - Check that QR data URL is properly generated and stored.
 
-- Session persistence failures
-  - Check LocalAuth dataPath exists and is writable.
-  - Validate database connectivity and prisma client initialization.
-  - Review logs for errors updating session or worker status.
+- **QR code shows but won't scan**
+  - Verify QR code refreshes automatically every 3 seconds.
+  - Ensure portal displays countdown timer for QR refresh.
+  - Check that QR data URL is valid and not corrupted.
 
-- WhatsApp Web connectivity issues
-  - Confirm Chrome/Chromium installation and executable path configured.
-  - Ensure environment variables for Puppeteer executable path are set in production.
-  - Monitor reconnection attempts and logs for repeated disconnections.
+#### Connecting State Issues
+- **Connection stuck in CONNECTING state**
+  - Verify Chrome/Chromium installation and executable path configured.
+  - Check that Puppeteer can access the browser binary.
+  - Monitor reconnection attempts and logs for authentication failures.
+  - Look for auth_failure events indicating permanent connection issues.
 
-- Worker crashes or exits
-  - Inspect uncaught exception and unhandled rejection handlers.
-  - Verify graceful shutdown on SIGTERM/SIGINT.
+#### Connected State Issues
+- **Connection drops to DISCONNECTED frequently**
+  - Monitor heartbeat logs for connection stability.
+  - Check network connectivity and firewall settings.
+  - Verify session persistence is working correctly.
+  - Review reconnection logs for patterns.
 
-- Rate limit exceeded
-  - Adjust RATE_LIMIT_MAX_PER_MINUTE environment variable.
-  - Expect a single warning per tenant per rate window.
+- **Messages not being processed**
+  - Check chat queue status for blocked messages.
+  - Verify rate limiter configuration allows sufficient replies.
+  - Ensure template configuration is properly loaded.
+  - Monitor deduplication cache for message processing issues.
 
-- Queue full
-  - Reduce concurrent chats or increase queue capacity.
-  - Consider sending a wait message to users when queue is full.
+#### Error State Issues
+- **Worker shows ERROR status**
+  - Check auth_failure logs for authentication problems.
+  - Verify tenant configuration is correct.
+  - Review database connection status.
+  - Check for exceeded rate limits or queue capacity issues.
+
+**Updated** Added CONNECTING state troubleshooting and enhanced state-specific guidance.
 
 **Section sources**
 - [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L15-L34)
 - [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L58-L62)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L357-L376)
-- [apps/control-plane/dist/server.js](file://apps/control-plane/dist/server.js#L65-L69)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L210-L226)
+- [apps/control-plane/src/server.ts](file://apps/control-plane/src/server.ts#L34-L38)
 - [apps/worker/src/utils/rate-limiter.ts](file://apps/worker/src/utils/rate-limiter.ts#L98-L105)
 - [apps/worker/src/utils/chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L38-L42)
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L38-L45)
 
 ## Conclusion
-The integration leverages whatsapp-web.js with robust session management, persistent state tracking, and resilient message processing. The worker process maintains health via heartbeat and reconnect logic, while the portal provides real-time visibility into QR and connection status. By tuning environment variables and ensuring proper Chrome/Chromium configuration, the system achieves reliable automation for WhatsApp Web.
-
-[No sources needed since this section summarizes without analyzing specific files]
+The integration leverages whatsapp-web.js with robust session management, persistent state tracking, and resilient message processing. The worker process maintains health via heartbeat and reconnect logic, while the portal provides real-time visibility into QR and connection status with comprehensive state indicators. By tuning environment variables and ensuring proper Chrome/Chromium configuration, the system achieves reliable automation for WhatsApp Web with enhanced state management and user experience.
 
 ## Appendices
 
@@ -531,13 +500,29 @@ The integration leverages whatsapp-web.js with robust session management, persis
 **Section sources**
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L7-L8)
 - [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L33-L34)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L317-L343)
-- [apps/control-plane/dist/server.js](file://apps/control-plane/dist/server.js#L65-L69)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L333-L359)
+- [apps/control-plane/src/server.ts](file://apps/control-plane/src/server.ts#L17-L39)
 - [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L5-L6)
 
 ### Logging and Diagnostics
 - Structured logging via pino with pretty output and optional per-tenant file transport.
 - Logs are written under a logs directory relative to the project root.
+- Enhanced state change logging for debugging connection issues.
+- Comprehensive error logging for authentication and connection failures.
 
 **Section sources**
 - [packages/shared/src/utils/logger.ts](file://packages/shared/src/utils/logger.ts#L5-L30)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L93-L95)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L210-L226)
+
+### Enhanced State Management Features
+- Real-time state transitions with comprehensive logging
+- Frontend state indicators with visual feedback
+- Auto-refresh QR codes with countdown timers
+- Graceful error handling with state recovery
+- Detailed troubleshooting information for each state
+
+**Section sources**
+- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L81-L163)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L226)
+- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L192-L216)

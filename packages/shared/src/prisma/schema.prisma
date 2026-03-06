@@ -19,6 +19,9 @@ enum TemplateType {
   BOOKING
   ECOMMERCE
   SUPPORT
+  REAL_ESTATE
+  RESTAURANT
+  HEALTHCARE
 }
 
 enum Language {
@@ -65,26 +68,34 @@ model Tenant {
   created_at    DateTime     @default(now())
   updated_at    DateTime     @updatedAt
 
-  config        TenantConfig?
-  whatsapp_session WhatsAppSession?
-  message_logs  MessageLog[]
-  worker_process WorkerProcess?
-  user          User?
-  setup_requests SetupRequest[]
+  subscription_end_date DateTime?
+  subscription_status   String    @default("ACTIVE")
+
+  config              TenantConfig?
+  whatsapp_session    WhatsAppSession?
+  message_logs        MessageLog[]
+  worker_process      WorkerProcess?
+  user                User?
+  setup_requests      SetupRequest[]
+  business_documents  BusinessDocument[]
+  conversation_messages ConversationMessage[]
 
   @@map("tenants")
 }
 
 model TenantConfig {
-  id            String       @id @default(uuid())
-  tenant_id     String       @unique
-  tenant        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
-  template_type TemplateType @default(BOOKING)
-  business_name String
-  language      Language     @default(SW)
-  hours_json    Json?
-  created_at    DateTime     @default(now())
-  updated_at    DateTime     @updatedAt
+  id               String       @id @default(uuid())
+  tenant_id        String       @unique
+  tenant           Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  template_type    TemplateType @default(BOOKING)
+  business_name    String
+  language         Language     @default(SW)
+  hours_json       Json?
+  business_context String?      @db.Text
+  ai_enabled       Boolean      @default(true)
+  website_url      String?
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @updatedAt
 
   @@map("tenant_configs")
 }
@@ -136,15 +147,59 @@ model User {
   tenant        Tenant?   @relation(fields: [tenant_id], references: [id])
   name          String
   email         String    @unique
+  emailVerified DateTime?
+  image         String?
   phone         String?
   role          UserRole  @default(OWNER)
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
 
+  accounts       Account[]
+  sessions       Session[]
   setup_requests SetupRequest[]
   portal_events  PortalEventLog[]
 
   @@map("users")
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }
 
 model SetupRequest {
@@ -174,4 +229,32 @@ model PortalEventLog {
 
   @@index([tenant_id, created_at])
   @@map("portal_event_logs")
+}
+
+model BusinessDocument {
+  id           String   @id @default(uuid())
+  tenant_id    String
+  tenant       Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  filename     String
+  file_type    String
+  file_path    String?
+  url          String?
+  content_text String?  @db.Text
+  created_at   DateTime @default(now())
+
+  @@index([tenant_id])
+  @@map("business_documents")
+}
+
+model ConversationMessage {
+  id         String   @id @default(uuid())
+  tenant_id  String
+  tenant     Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  contact    String
+  role       String
+  content    String   @db.Text
+  created_at DateTime @default(now())
+
+  @@index([tenant_id, contact, created_at])
+  @@map("conversation_messages")
 }

@@ -42,7 +42,7 @@ export function CTASection() {
               Get Started Now
             </Button>
             <Button
-              href="https://wa.me/255712345678?text=Hi,%20I'm%20interested%20in%20Flow%20HQ"
+              href="https://wa.me/255765111131?text=Hi,%20I'm%20interested%20in%20Chatisha"
               variant="outline"
               size="lg"
             >
@@ -57,10 +57,10 @@ export function CTASection() {
           <div className="inline-flex items-center gap-2 text-slate-400">
             <span>Or call us:</span>
             <a
-              href="tel:+255712345678"
+              href="tel:+255765111131"
               className="text-primary-400 hover:text-primary-300 font-medium transition-colors"
             >
-              +255 712 345 678
+              +255 765 111 131
             </a>
           </div>
 

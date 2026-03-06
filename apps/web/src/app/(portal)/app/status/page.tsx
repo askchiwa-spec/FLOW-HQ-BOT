@@ -70,9 +70,13 @@ export default function StatusPage() {
     }
   };
 
-  const showQRButton = data?.tenant?.status === 'QR_PENDING' || 
-                       data?.tenant?.whatsapp_session?.state === 'QR_READY' ||
-                       data?.tenant?.whatsapp_session?.state === 'CONNECTED';
+  const sessionState = data?.tenant?.whatsapp_session?.state;
+  const tenantStatus = data?.tenant?.status;
+
+  // Worker is starting up — QR not ready yet
+  const isSpinningUp = tenantStatus === 'QR_PENDING' && sessionState === 'DISCONNECTED';
+  // QR is ready or already connected — show the scan button
+  const showQRButton = tenantStatus === 'QR_PENDING' && (sessionState === 'QR_READY' || sessionState === 'CONNECTED');
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -177,6 +181,26 @@ export default function StatusPage() {
       </motion.div>
 
       {/* Action Cards */}
+
+      {/* Spinning up — worker starting, QR not ready yet */}
+      {isSpinningUp && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-gradient-to-br from-primary-500/10 to-primary-600/5 rounded-2xl p-6 border border-primary-500/20"
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-400" />
+            <h2 className="text-lg font-semibold text-white">Starting Your Bot...</h2>
+          </div>
+          <p className="text-slate-400">
+            Your WhatsApp bot is being prepared. A QR code will appear here in a few seconds — this page refreshes automatically.
+          </p>
+        </motion.div>
+      )}
+
+      {/* QR ready — show connect button */}
       {showQRButton && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -184,21 +208,22 @@ export default function StatusPage() {
           transition={{ delay: 0.3 }}
           className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 rounded-2xl p-6 border border-amber-500/20"
         >
-          <h2 className="text-lg font-semibold text-white mb-2">Next Step</h2>
+          <h2 className="text-lg font-semibold text-white mb-2">Scan to Activate</h2>
           <p className="text-slate-400 mb-4">
-            Your setup has been approved. Connect your WhatsApp to start receiving messages.
+            Your bot is ready. Open WhatsApp on your phone and scan the QR code to go live.
           </p>
           <Link
             href="/app/whatsapp"
             className="inline-flex items-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-xl font-medium hover:from-green-600 hover:to-green-700 transition-all shadow-lg shadow-green-500/20"
           >
-            <span>Connect WhatsApp</span>
+            <span>Scan QR Code</span>
             <span>→</span>
           </Link>
         </motion.div>
       )}
 
-      {data?.tenant?.status === 'ACTIVE' && (
+      {/* Active */}
+      {tenantStatus === 'ACTIVE' && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -207,10 +232,10 @@ export default function StatusPage() {
         >
           <div className="flex items-center gap-3 mb-2">
             <span className="text-2xl">🎉</span>
-            <h2 className="text-lg font-semibold text-white">You're All Set!</h2>
+            <h2 className="text-lg font-semibold text-white">You're Live!</h2>
           </div>
           <p className="text-slate-400 mb-4">
-            Your WhatsApp automation is active and ready to handle messages.
+            Your WhatsApp bot is active and handling customer messages automatically.
           </p>
           <Link
             href="/app/logs"

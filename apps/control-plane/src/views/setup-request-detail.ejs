@@ -1,123 +1,166 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Setup Request Detail - Flow HQ Admin</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chatisha Admin — Setup Request</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
-    .header { background: #1a1a2e; color: white; padding: 1rem 2rem; }
-    .header h1 { font-size: 1.5rem; }
-    .nav { background: #16213e; padding: 0.5rem 2rem; }
-    .nav a { color: #eaeaea; text-decoration: none; margin-right: 2rem; font-size: 0.9rem; }
-    .nav a:hover { color: white; }
-    .container { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
-    .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; margin-bottom: 1.5rem; }
-    .card-header { padding: 1rem 1.5rem; border-bottom: 1px solid #e5e5e5; }
-    .card-header h2 { font-size: 1.25rem; }
-    .card-body { padding: 1.5rem; }
-    .detail-row { display: flex; padding: 0.75rem 0; border-bottom: 1px solid #f3f4f6; }
-    .detail-row:last-child { border-bottom: none; }
-    .detail-label { width: 150px; font-weight: 600; color: #6b7280; }
-    .detail-value { flex: 1; }
-    .status-badge {
-      display: inline-block;
-      padding: 0.25rem 0.75rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #080d18; --bg-card: #0d1625; --bg-card2: #111c2e;
+      --border: rgba(255,255,255,0.07); --primary: #10b981;
+      --primary-dim: rgba(16,185,129,0.12); --primary-border: rgba(16,185,129,0.25);
+      --secondary: #8b5cf6; --danger: #ef4444; --danger-dim: rgba(239,68,68,0.12);
+      --warning: #f59e0b; --warning-dim: rgba(245,158,11,0.12);
+      --text: #e2e8f0; --text-muted: #64748b; --text-dim: #94a3b8;
+      --radius: 12px; --radius-sm: 8px;
     }
-    .status-SUBMITTED { background: #dbeafe; color: #1e40af; }
-    .status-REVIEWING { background: #fef3c7; color: #92400e; }
-    .status-APPROVED { background: #d1fae5; color: #065f46; }
-    .status-ACTIVE { background: #059669; color: white; }
-    .status-REJECTED { background: #fee2e2; color: #991b1b; }
-    .btn {
-      display: inline-block;
-      padding: 0.75rem 1.5rem;
-      border-radius: 6px;
-      text-decoration: none;
-      font-size: 0.875rem;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-      margin-right: 0.5rem;
-    }
-    .btn-success { background: #10b981; color: white; }
-    .btn-success:hover { background: #059669; }
-    .btn-danger { background: #ef4444; color: white; }
-    .btn-danger:hover { background: #dc2626; }
-    .btn-secondary { background: #6b7280; color: white; }
-    .btn-secondary:hover { background: #4b5563; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .form-group { margin-bottom: 1rem; }
-    .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
-    .form-group textarea {
-      width: 100%;
-      padding: 0.75rem;
-      border: 1px solid #d1d5db;
-      border-radius: 4px;
-      font-family: inherit;
-      min-height: 100px;
-    }
-    .actions { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e5e5; }
-    .back-link { display: inline-block; margin-bottom: 1rem; color: #6b7280; text-decoration: none; }
-    .back-link:hover { color: #374151; }
-    .alert { padding: 1rem; border-radius: 6px; margin-bottom: 1rem; }
-    .alert-info { background: #dbeafe; color: #1e40af; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+    .sidebar { width: 240px; min-height: 100vh; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10; }
+    .logo { display: flex; align-items: center; gap: 12px; padding: 24px 20px; border-bottom: 1px solid var(--border); }
+    .logo-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; color: white; flex-shrink: 0; box-shadow: 0 0 20px rgba(16,185,129,0.3); }
+    .logo-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; color: white; }
+    .logo-sub { font-size: 10px; color: var(--text-muted); font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; }
+    .nav { padding: 16px 12px; flex: 1; }
+    .nav-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 8px; margin-bottom: 8px; margin-top: 16px; }
+    .nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-dim); text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s; margin-bottom: 2px; border: 1px solid transparent; }
+    .nav-link:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+    .nav-link.active { background: var(--primary-dim); color: var(--primary); border-color: var(--primary-border); }
+    .nav-link svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); }
+    .sidebar-footer p { font-size: 11px; color: var(--text-muted); }
+    .main { margin-left: 240px; flex: 1; padding: 32px; min-height: 100vh; max-width: calc(100% - 240px); }
+    .inner { max-width: 760px; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); text-decoration: none; font-size: 13px; margin-bottom: 20px; transition: color 0.15s; }
+    .back-link:hover { color: var(--primary); }
+    .page-header { margin-bottom: 28px; }
+    .page-header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; color: white; }
+    .page-header p { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 20px; overflow: hidden; }
+    .card-header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .card-header h2 { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 600; color: white; }
+    .card-body { padding: 24px; }
+    .info-row { display: flex; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); gap: 16px; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { width: 150px; flex-shrink: 0; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; padding-top: 2px; }
+    .info-value { flex: 1; font-size: 14px; color: var(--text); }
+    .info-value.mono { font-family: monospace; font-size: 12px; word-break: break-all; color: var(--text-dim); }
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; }
+    .badge-submitted { background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
+    .badge-reviewing { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.25); }
+    .badge-approved { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.25); }
+    .badge-active { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+    .badge-rejected { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--text-dim); margin-bottom: 8px; }
+    .form-group textarea { width: 100%; padding: 12px 14px; background: var(--bg-card2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-family: inherit; min-height: 100px; resize: vertical; transition: border-color 0.15s; }
+    .form-group textarea:focus { outline: none; border-color: var(--primary); }
+    .form-group textarea::placeholder { color: var(--text-muted); }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; cursor: pointer; border: 1px solid transparent; text-decoration: none; transition: all 0.15s; font-family: inherit; }
+    .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+    .btn-primary:hover { background: #059669; }
+    .btn-success { background: var(--primary-dim); color: var(--primary); border-color: var(--primary-border); }
+    .btn-success:hover { background: rgba(16,185,129,0.2); }
+    .btn-danger { background: var(--danger-dim); color: var(--danger); border-color: rgba(239,68,68,0.25); }
+    .btn-danger:hover { background: rgba(239,68,68,0.2); }
+    .btn-ghost { background: rgba(255,255,255,0.05); color: var(--text-dim); border-color: var(--border); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.08); color: white; }
+    .action-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    .info-box { padding: 14px 16px; border-radius: var(--radius-sm); display: flex; align-items: flex-start; gap: 10px; font-size: 13px; }
+    .info-box-approved { background: var(--primary-dim); border: 1px solid var(--primary-border); color: #34d399; }
+    .info-box-active { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); color: #34d399; }
+    .info-box svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+    .notes-box { padding: 12px 16px; background: var(--bg-card2); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; color: var(--text-dim); line-height: 1.6; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Flow HQ Admin</h1>
-  </div>
-  <nav class="nav">
-    <a href="/admin/tenants">Tenants</a>
-    <a href="/admin/setup-requests">Setup Requests</a>
-  </nav>
-  <div class="container">
-    <a href="/admin/setup-requests" class="back-link">← Back to Setup Requests</a>
-    
-    <div class="card">
-      <div class="card-header">
-        <h2>Setup Request Details</h2>
-      </div>
-      <div class="card-body">
-        <div class="detail-row">
-          <div class="detail-label">Request ID</div>
-          <div class="detail-value"><%= request.id %></div>
-        </div>
-        <div class="detail-row">
-          <div class="detail-label">Business Name</div>
-          <div class="detail-value"><%= request.tenant?.name || 'N/A' %></div>
-        </div>
-        <div class="detail-row">
-          <div class="detail-label">Template Type</div>
-          <div class="detail-value"><%= request.template_type %></div>
-        </div>
-        <div class="detail-row">
-          <div class="detail-label">WhatsApp Number</div>
-          <div class="detail-value"><%= request.whatsapp_number %></div>
-        </div>
-        <div class="detail-row">
-          <div class="detail-label">Status</div>
-          <div class="detail-value">
-            <span class="status-badge status-<%= request.status %>"><%= request.status %></span>
-          </div>
-        </div>
-        <div class="detail-row">
-          <div class="detail-label">Submitted</div>
-          <div class="detail-value"><%= new Date(request.created_at).toLocaleString() %></div>
-        </div>
-        <% if (request.notes) { %>
-          <div class="detail-row">
-            <div class="detail-label">Notes</div>
-            <div class="detail-value"><%= request.notes %></div>
-          </div>
-        <% } %>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">F</div>
+      <div>
+        <div class="logo-text">Chatisha</div>
+        <div class="logo-sub">Admin Panel</div>
       </div>
     </div>
+    <nav class="nav">
+      <div class="nav-label">Management</div>
+      <a href="/admin/tenants" class="nav-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Tenants
+      </a>
+      <a href="/admin/setup-requests" class="nav-link active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Setup Requests
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <p>Chatisha Control Plane</p>
+    </div>
+  </aside>
 
-    <% if (request.status === 'SUBMITTED' || request.status === 'REVIEWING') { %>
+  <!-- Main -->
+  <main class="main">
+    <div class="inner">
+      <a href="/admin/setup-requests" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M19 12H5m7-7l-7 7 7 7"/></svg>
+        Back to Setup Requests
+      </a>
+
+      <div class="page-header">
+        <h1><%= request.tenant?.name || 'Setup Request' %></h1>
+        <p>Submitted <%= new Date(request.created_at).toLocaleString() %></p>
+      </div>
+
+      <!-- Request Details -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Request Details</h2>
+          <%
+            const statusKey = (request.status || '').toLowerCase();
+          %>
+          <span class="badge badge-<%= statusKey %>">
+            <span class="dot"></span>
+            <%= request.status %>
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="info-row">
+            <div class="info-label">Request ID</div>
+            <div class="info-value mono"><%= request.id %></div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Business Name</div>
+            <div class="info-value"><%= request.tenant?.name || 'N/A' %></div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Template Type</div>
+            <div class="info-value"><%= request.template_type %></div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">WhatsApp</div>
+            <div class="info-value mono"><%= request.whatsapp_number %></div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Submitted</div>
+            <div class="info-value" style="color:var(--text-dim);"><%= new Date(request.created_at).toLocaleString() %></div>
+          </div>
+          <% if (request.notes) { %>
+          <div class="info-row">
+            <div class="info-label">Notes</div>
+            <div class="info-value">
+              <div class="notes-box"><%= request.notes %></div>
+            </div>
+          </div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Action Panel -->
+      <% if (request.status === 'SUBMITTED' || request.status === 'REVIEWING') { %>
       <div class="card">
         <div class="card-header">
           <h2>Actions</h2>
@@ -125,50 +168,68 @@
         <div class="card-body">
           <form method="POST" action="/admin/setup-requests/<%= request.id %>/approve">
             <div class="form-group">
-              <label for="notes">Approval Notes (optional)</label>
-              <textarea name="notes" id="notes" placeholder="Add any notes about this approval..."></textarea>
+              <label>Approval Notes <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+              <textarea name="notes" placeholder="Add any notes about this approval..."></textarea>
             </div>
-            <button type="submit" class="btn btn-success">Approve & Start Worker</button>
+            <button type="submit" class="btn btn-success">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M20 6L9 17l-5-5"/></svg>
+              Approve & Start Worker
+            </button>
           </form>
-          
-          <form method="POST" action="/admin/setup-requests/<%= request.id %>/reject" style="margin-top: 1rem;">
+
+          <hr class="action-divider">
+
+          <form method="POST" action="/admin/setup-requests/<%= request.id %>/reject">
             <div class="form-group">
-              <label for="rejectNotes">Rejection Reason (required)</label>
-              <textarea name="notes" id="rejectNotes" required placeholder="Explain why this request is being rejected..."></textarea>
+              <label>Rejection Reason <span style="color:var(--danger);font-weight:400;">(required)</span></label>
+              <textarea name="notes" required placeholder="Explain why this request is being rejected..."></textarea>
             </div>
-            <button type="submit" class="btn btn-danger">Reject Request</button>
+            <button type="submit" class="btn btn-danger">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              Reject Request
+            </button>
           </form>
         </div>
       </div>
-    <% } %>
+      <% } %>
 
-    <% if (request.status === 'APPROVED') { %>
+      <% if (request.status === 'APPROVED') { %>
       <div class="card">
         <div class="card-header">
           <h2>Worker Status</h2>
         </div>
         <div class="card-body">
-          <div class="alert alert-info">
-            Worker is starting. The user will see the QR code once it's ready.
+          <div class="info-box info-box-approved">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Worker is starting up. The tenant will receive their QR code once it's ready.
           </div>
-          <a href="/admin/tenants/<%= request.tenant_id %>" class="btn btn-secondary">View Tenant Details</a>
+          <div style="margin-top:16px;">
+            <a href="/admin/tenants/<%= request.tenant_id %>" class="btn btn-ghost">View Tenant Details</a>
+          </div>
         </div>
       </div>
-    <% } %>
+      <% } %>
 
-    <% if (request.status === 'ACTIVE') { %>
+      <% if (request.status === 'ACTIVE') { %>
       <div class="card">
         <div class="card-header">
           <h2>Tenant Active</h2>
         </div>
         <div class="card-body">
-          <div class="alert alert-info">
-            This tenant is now active and processing messages.
+          <div class="info-box info-box-active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+            This tenant is live and processing WhatsApp messages.
           </div>
-          <a href="/admin/tenants/<%= request.tenant_id %>" class="btn btn-secondary">View Tenant Details</a>
+          <div style="margin-top:16px;">
+            <a href="/admin/tenants/<%= request.tenant_id %>" class="btn btn-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              View Tenant Dashboard
+            </a>
+          </div>
         </div>
       </div>
-    <% } %>
-  </div>
+      <% } %>
+    </div>
+  </main>
 </body>
 </html>

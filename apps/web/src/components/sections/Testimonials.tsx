@@ -9,7 +9,7 @@ const testimonials = [
     business: 'Nuru Beauty Salon',
     location: 'Dar es Salaam',
     whatsapp: '255712345678',
-    quote: 'Flow HQ transformed our booking system. We no longer miss appointments and our customers love the instant confirmations.',
+    quote: 'Chatisha transformed our booking system. We no longer miss appointments and our customers love the instant confirmations.',
     rating: 5,
   },
   {
@@ -56,7 +56,7 @@ export function Testimonials() {
             </span>
           </h2>
           <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-            See what business owners are saying about Flow HQ.
+            See what business owners are saying about Chatisha.
           </p>
         </motion.div>
 

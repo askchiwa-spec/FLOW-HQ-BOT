@@ -1,21 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { validateWhatsAppNumber, getSupportedCountries } from '@/lib/validators';
 
 export default function OnboardingPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const templateFromUrl = searchParams.get('template');
+  const validTemplates = ['BOOKING', 'ECOMMERCE', 'SUPPORT', 'REAL_ESTATE', 'RESTAURANT', 'HEALTHCARE'];
+  const initialTemplate = templateFromUrl && validTemplates.includes(templateFromUrl)
+    ? templateFromUrl
+    : 'BOOKING';
+
+  useEffect(() => {
+    if (status === 'loading') return;
+    if ((session?.user as any)?.hasSetupRequest) {
+      router.replace('/app/status');
+    }
+  }, [session, status, router]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     businessName: '',
-    businessType: '',
-    templateType: 'BOOKING',
+    templateType: initialTemplate,
     whatsappNumber: '',
     language: 'SW',
   });
@@ -126,21 +139,6 @@ export default function OnboardingPage() {
             />
           </div>
 
-          {/* Business Type */}
-          <div>
-            <label className="block text-sm font-medium text-white mb-2">
-              Business Type
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.businessType}
-              onChange={(e) => setFormData({ ...formData, businessType: e.target.value })}
-              className="w-full bg-dark-700/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
-              placeholder="e.g., Salon, Clinic, Store, Restaurant"
-            />
-          </div>
-
           {/* Template Type */}
           <div>
             <label className="block text-sm font-medium text-white mb-2">
@@ -149,8 +147,11 @@ export default function OnboardingPage() {
             <div className="grid sm:grid-cols-3 gap-3">
               {[
                 { value: 'BOOKING', label: 'Bookings', icon: '📅', desc: 'Appointments & scheduling' },
-                { value: 'ECOMMERCE', label: 'Sales', icon: '🛒', desc: 'Orders & payments' },
-                { value: 'SUPPORT', label: 'Support', icon: '💬', desc: 'Customer service' },
+                { value: 'ECOMMERCE', label: 'Sales & Orders', icon: '🛒', desc: 'Products & payments' },
+                { value: 'SUPPORT', label: 'Support', icon: '💬', desc: 'Customer service & FAQs' },
+                { value: 'REAL_ESTATE', label: 'Real Estate', icon: '🏠', desc: 'Property listings & viewings' },
+                { value: 'RESTAURANT', label: 'Restaurant', icon: '🍽️', desc: 'Orders & table reservations' },
+                { value: 'HEALTHCARE', label: 'Healthcare', icon: '🏥', desc: 'Appointments & clinic info' },
               ].map((option) => (
                 <button
                   key={option.value}

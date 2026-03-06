@@ -11,39 +11,26 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
-  callbacks: {
-    async signIn({ user, account, profile }) {
-      if (account?.provider === 'google') {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-          include: { tenant: true },
-        });
+  events: {
+    async createUser({ user }) {
+      // Runs after the adapter creates the user — safe to create and link a tenant here
+      const newTenant = await prisma.tenant.create({
+        data: {
+          name: user.name || 'New Business',
+          phone_number: '',
+          status: 'NEW',
+          whatsapp_session: { create: {} },
+          worker_process: { create: { pm2_name: `worker-${Date.now()}` } },
+        },
+      });
 
-        if (!existingUser) {
-          // Create tenant first
-          const newTenant = await prisma.tenant.create({
-            data: {
-              name: user.name || 'New Business',
-              phone_number: '',
-              status: 'NEW',
-              whatsapp_session: { create: {} },
-              worker_process: { create: { pm2_name: `worker-${Date.now()}` } },
-            },
-          });
-
-          // Create user linked to tenant
-          await prisma.user.create({
-            data: {
-              email: user.email!,
-              name: user.name || 'New User',
-              tenant_id: newTenant.id,
-              role: 'OWNER',
-            },
-          });
-        }
-      }
-      return true;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { tenant_id: newTenant.id, role: 'OWNER' },
+      });
     },
+  },
+  callbacks: {
     async session({ session, user }) {
       if (session.user) {
         const dbUser = await prisma.user.findUnique({

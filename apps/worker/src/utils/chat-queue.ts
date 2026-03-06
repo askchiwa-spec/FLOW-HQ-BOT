@@ -3,7 +3,7 @@
  * Prevents concurrent handling of messages from the same chat
  */
 
-import { logger } from '@flowhq/shared';
+import { logger } from '@chatisha/shared';
 
 interface QueuedMessage {
   id: string;

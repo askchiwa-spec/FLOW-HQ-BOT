@@ -1,4 +1,4 @@
-import { PrismaClient } from '@flowhq/shared';
+import { PrismaClient } from '@chatisha/shared';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;

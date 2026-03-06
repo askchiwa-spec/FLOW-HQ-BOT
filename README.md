@@ -1,4 +1,4 @@
-# Flow HQ - WhatsApp Chatbot Platform MVP
+# Chatisha - WhatsApp Chatbot Platform MVP
 
 A multi-tenant WhatsApp chatbot platform with isolated sessions per client, managed from a central admin backend.
 
@@ -93,14 +93,17 @@ Use the password set in `ADMIN_PASSWORD` env variable.
 
 ### Test the Bot
 
-Send a message to the connected WhatsApp number:
+Send a message to the connected WhatsApp number. The bot uses Claude AI (Haiku) and responds based on the tenant's template type, language setting, and uploaded knowledge base.
 
-**Booking Template (Swahili)**:
-- Message: "booking" or "miadi"
-- Reply: "Karibu [business_name]. Tafadhali taja huduma unayotaka na tarehe..."
+**Example interactions (Swahili / BOOKING template)**:
+- "habari" → AI greets and asks how it can help
+- "nataka kubook miadi" → AI collects service, date, and contact details
+- "bei yenu ni ngapi?" → AI answers from the knowledge base (if price list uploaded)
+- "niongee na mtu" → Triggers human handoff, logs `HUMAN HANDOFF REQUESTED`
 
-- Message: "hello" or any other text
-- Reply: "Karibu [business_name]. Andika: 1) Booking 2) Huduma 3) Bei 4) Mawasiliano"
+**Human handoff trigger words**: human, agent, person, representative, staff, manager, supervisor, owner, binadamu, mtu, niongee na mtu
+
+If AI fails (e.g. API outage), the bot sends a graceful fallback message and continues processing the next message.
 
 ### View Logs
 
@@ -215,7 +218,7 @@ All endpoints require the admin password via Basic Auth or query parameter.
 npm run dev:api
 
 # Terminal 2: Worker (for specific tenant)
-TENANT_ID=<tenant-id> SESSIONS_PATH=./sessions npm run dev --workspace=@flowhq/worker
+TENANT_ID=<tenant-id> SESSIONS_PATH=./sessions npm run dev --workspace=@chatisha/worker
 ```
 
 ### Run Multi-Tenant Stress Test
@@ -291,9 +294,9 @@ sudo apt-get install -y git
 sudo -u postgres psql
 
 # Create database and user
-CREATE DATABASE flowhq;
-CREATE USER flowhq_user WITH ENCRYPTED PASSWORD 'your_secure_password';
-GRANT ALL PRIVILEGES ON DATABASE flowhq TO flowhq_user;
+CREATE DATABASE chatisha;
+CREATE USER chatisha_user WITH ENCRYPTED PASSWORD 'your_secure_password';
+GRANT ALL PRIVILEGES ON DATABASE chatisha TO chatisha_user;
 \q
 ```
 
@@ -302,8 +305,8 @@ GRANT ALL PRIVILEGES ON DATABASE flowhq TO flowhq_user;
 ```bash
 # Clone repository
 cd /opt
-git clone <your-repo-url> flowhq
-cd flowhq
+git clone <your-repo-url> chatisha
+cd chatisha
 
 # Install dependencies
 cd packages/shared && npm install && npm run build
@@ -322,7 +325,7 @@ Edit `.env`:
 ```bash
 NODE_ENV=production
 PORT=3000
-DATABASE_URL=postgresql://flowhq_user:your_secure_password@localhost:5432/flowhq
+DATABASE_URL=postgresql://chatisha_user:your_secure_password@localhost:5432/chatisha
 ADMIN_PASSWORD=your_very_secure_admin_password
 PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 RATE_LIMIT_MAX_PER_MINUTE=10
@@ -354,7 +357,7 @@ pm2 startup
 sudo apt-get install -y nginx
 
 # Create config
-sudo tee /etc/nginx/sites-available/flowhq << 'EOF'
+sudo tee /etc/nginx/sites-available/chatisha << 'EOF'
 server {
     listen 80;
     server_name your-domain.com;
@@ -374,7 +377,7 @@ server {
 EOF
 
 # Enable site
-sudo ln -s /etc/nginx/sites-available/flowhq /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/chatisha /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 ```

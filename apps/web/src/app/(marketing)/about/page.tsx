@@ -6,10 +6,10 @@ import CountUp from 'react-countup';
 
 const team = [
   {
-    name: 'Amina Mwalimu',
+    name: 'Chiwambo John Bandawe',
     role: 'Founder & CEO',
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
-    socials: { linkedin: '#', twitter: '#' },
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+    socials: { linkedin: 'https://www.linkedin.com/in/chiwambo-john-bandawe-2bb8278a', twitter: '#' },
   },
   {
     name: 'David Kimaro',
@@ -117,7 +117,7 @@ export default function AboutPage() {
             transition={{ duration: 0.8 }}
           >
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-heading font-bold text-white mb-6">
-              About <span className="text-primary-400">Flow HQ</span>
+              About <span className="text-primary-400">Chatisha</span>
             </h1>
             <p className="text-xl text-slate-300 max-w-2xl mx-auto">
               Empowering African businesses with intelligent automation, one conversation at a time.
@@ -153,14 +153,14 @@ export default function AboutPage() {
               </h2>
               <div className="space-y-4 text-slate-300 text-lg leading-relaxed">
                 <p>
-                  Flow HQ was born in Dar es Salaam, Tanzania, from a simple observation: 
+                  Chatisha was born in Dar es Salaam, Tanzania, from a simple observation: 
                   small businesses were missing countless opportunities because they couldn't 
                   keep up with customer messages on WhatsApp.
                 </p>
                 <p>
-                  Our founder, Amina, watched her aunt's salon lose bookings daily — not 
-                  because of poor service, but because she couldn't respond to every inquiry 
-                  while working with clients.
+                  Our founder, Chiwambo, saw businesses losing customers daily — not
+                  because of poor service, but because no one could respond to every WhatsApp
+                  inquiry fast enough.
                 </p>
                 <p>
                   That's when we realized: what if WhatsApp could respond automatically? 
@@ -168,7 +168,7 @@ export default function AboutPage() {
                   size or budget?
                 </p>
                 <p className="text-primary-400 font-medium">
-                  Flow HQ is our answer — built in Africa, for Africa, but ready for the world.
+                  Chatisha is our answer — built in Africa, for Africa, but ready for the world.
                 </p>
               </div>
             </motion.div>
@@ -184,7 +184,7 @@ export default function AboutPage() {
               <div className="relative rounded-2xl overflow-hidden">
                 <img 
                   src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80"
-                  alt="Flow HQ team working"
+                  alt="Chatisha team working"
                   className="w-full h-[400px] object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-dark-900/50 to-transparent" />
@@ -361,7 +361,7 @@ export default function AboutPage() {
               Meet the <span className="text-primary-400">Team</span>
             </h2>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-              The passionate people behind Flow HQ, working to transform African business communication.
+              The passionate people behind Chatisha, working to transform African business communication.
             </p>
           </motion.div>
 

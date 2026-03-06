@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Multi-Tenant Stress Test for Flow HQ WhatsApp MVP
+ * Multi-Tenant Stress Test for Chatisha WhatsApp MVP
  * 
  * This script:
  * 1. Creates 3 test tenants
@@ -9,7 +9,7 @@
  * 4. Verifies no cross-tenant data leakage
  */
 
-import { PrismaClient, TenantStatus, MessageDirection } from '@flowhq/shared';
+import { PrismaClient, TenantStatus, MessageDirection } from '@chatisha/shared';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
@@ -325,7 +325,7 @@ async function cleanup(tenants: TestTenant[]): Promise<void> {
 
 async function runStressTest(): Promise<void> {
   console.log('╔════════════════════════════════════════════════════════════╗');
-  console.log('║     Flow HQ WhatsApp MVP - Multi-Tenant Stress Test       ║');
+  console.log('║     Chatisha WhatsApp MVP - Multi-Tenant Stress Test       ║');
   console.log('╚════════════════════════════════════════════════════════════╝\n');
   
   const tenants: TestTenant[] = [];

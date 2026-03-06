@@ -2,7 +2,7 @@
  * Exponential backoff reconnect manager for WhatsApp
  */
 
-import { logger } from '@flowhq/shared';
+import { logger } from '@chatisha/shared';
 
 interface ReconnectConfig {
   initialDelayMs: number;

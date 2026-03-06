@@ -4,7 +4,17 @@ import { getProviders } from 'next-auth/react';
 import { authOptions } from '@/lib/auth';
 import SignInButton from './SignInButton';
 
-export default async function SignInPage() {
+const ERROR_MESSAGES: Record<string, string> = {
+  OAuthSignin: 'Error starting sign-in. Try again.',
+  OAuthCallback: 'Error during sign-in callback. Try again.',
+  OAuthCreateAccount: 'Could not create account. Try again.',
+  OAuthAccountNotLinked: 'Account already exists with a different provider.',
+  Callback: 'Sign-in callback error.',
+  google: 'Google sign-in failed. Check your Google Cloud Console OAuth consent screen — your email may need to be added as a test user if the app is in Testing mode.',
+  default: 'Sign-in failed. Please try again.',
+};
+
+export default async function SignInPage({ searchParams }: { searchParams: { error?: string } }) {
   const session = await getServerSession(authOptions);
 
   if (session) {
@@ -12,6 +22,8 @@ export default async function SignInPage() {
   }
 
   const providers = await getProviders();
+  const error = searchParams?.error;
+  const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.default) : null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-dark-900 relative overflow-hidden">
@@ -39,12 +51,19 @@ export default async function SignInPage() {
             <span className="text-white font-bold text-2xl">F</span>
           </div>
           <h1 className="text-3xl font-heading font-bold text-white">
-            Welcome to <span className="text-primary-400">Flow HQ</span>
+            Welcome to <span className="text-primary-400">Chatisha</span>
           </h1>
           <p className="mt-2 text-slate-400">
             Sign in to access your WhatsApp automation dashboard
           </p>
         </div>
+
+        {/* Error message */}
+        {errorMessage && (
+          <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {errorMessage}
+          </div>
+        )}
 
         {/* Sign in card */}
         <div className="bg-dark-800/50 backdrop-blur-sm rounded-2xl p-8 border border-white/10">

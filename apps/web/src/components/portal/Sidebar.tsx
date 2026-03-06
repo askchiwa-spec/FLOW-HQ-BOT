@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const navigation = [
   { name: 'Dashboard', href: '/app/status', icon: HomeIcon },
   { name: 'Onboarding', href: '/app/onboarding', icon: DocumentIcon },
+  { name: 'Knowledge Base', href: '/app/knowledge', icon: BrainIcon },
   { name: 'WhatsApp', href: '/app/whatsapp', icon: ChatIcon },
   { name: 'Messages', href: '/app/logs', icon: InboxIcon },
 ];
@@ -37,6 +38,14 @@ function ChatIcon({ className }: { className?: string }) {
   );
 }
 
+function BrainIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+    </svg>
+  );
+}
+
 function InboxIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -57,9 +66,9 @@ export function PortalSidebar({ user }: { user: any }) {
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">F</span>
+              <span className="text-white font-bold text-sm">C</span>
             </div>
-            <span className="text-white font-heading font-bold">Flow HQ</span>
+            <span className="text-white font-heading font-bold">Chatisha</span>
           </Link>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -102,10 +111,10 @@ export function PortalSidebar({ user }: { user: any }) {
           <div className="h-16 flex items-center px-6 border-b border-white/10">
             <Link href="/" className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center shadow-lg shadow-primary-500/20">
-                <span className="text-white font-bold text-lg">F</span>
+                <span className="text-white font-bold text-lg">C</span>
               </div>
               <div>
-                <span className="text-white font-heading font-bold text-xl">Flow HQ</span>
+                <span className="text-white font-heading font-bold text-xl">Chatisha</span>
                 <span className="block text-xs text-primary-400">Portal</span>
               </div>
             </Link>
@@ -139,7 +148,7 @@ export function PortalSidebar({ user }: { user: any }) {
           </nav>
 
           {/* User section */}
-          <div className="p-4 border-t border-white/10">
+          <div className="p-4 border-t border-white/10 space-y-2">
             <div className="flex items-center gap-3 p-3 rounded-xl bg-dark-800/50">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-secondary-500 to-secondary-600 flex items-center justify-center text-white font-bold">
                 {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
@@ -153,6 +162,15 @@ export function PortalSidebar({ user }: { user: any }) {
                 </p>
               </div>
             </div>
+            <button
+              onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign out
+            </button>
           </div>
         </div>
       </aside>

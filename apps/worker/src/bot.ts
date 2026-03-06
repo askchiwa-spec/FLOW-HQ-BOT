@@ -1,9 +1,9 @@
 import { Client, LocalAuth, Message } from 'whatsapp-web.js';
-import { PrismaClient, createLogger } from '@flowhq/shared';
+import { PrismaClient, createLogger } from '@chatisha/shared';
 import QRCode from 'qrcode';
 import path from 'path';
 import fs from 'fs';
-import { getResponse, TemplateConfig } from './templates';
+import { getAIResponse, AIConfig } from './ai';
 import { RateLimiter } from './utils/rate-limiter';
 import { ChatQueueManager } from './utils/chat-queue';
 import { MessageDeduplicator } from './utils/dedup';
@@ -14,7 +14,7 @@ export class WhatsAppBot {
   private prisma: PrismaClient;
   private logger: ReturnType<typeof createLogger>;
   private tenantId: string;
-  private config: TemplateConfig | null = null;
+  private config: AIConfig | null = null;
   private isReady: boolean = false;
   
   // Hardening components
@@ -81,7 +81,7 @@ export class WhatsAppBot {
       try {
         const qrDataUrl = await QRCode.toDataURL(qr);
         
-        await this.prisma.whatsappSession.update({
+        await this.prisma.whatsAppSession.update({
           where: { tenant_id: this.tenantId },
           data: {
             state: 'QR_READY',
@@ -103,7 +103,7 @@ export class WhatsAppBot {
       this.reconnectManager.reset();
       
       try {
-        await this.prisma.whatsappSession.update({
+        await this.prisma.whatsAppSession.update({
           where: { tenant_id: this.tenantId },
           data: {
             state: 'CONNECTED',
@@ -190,7 +190,7 @@ export class WhatsAppBot {
       this.stopHeartbeat();
       
       try {
-        await this.prisma.whatsappSession.update({
+        await this.prisma.whatsAppSession.update({
           where: { tenant_id: this.tenantId },
           data: { state: 'DISCONNECTED' }
         });
@@ -229,16 +229,18 @@ export class WhatsAppBot {
     try {
       const tenant = await this.prisma.tenant.findUnique({
         where: { id: this.tenantId },
-        include: { config: true }
+        include: { config: true },
       });
-      
+
       if (tenant?.config) {
         this.config = {
-          template_type: tenant.config.template_type as 'BOOKING' | 'ECOMMERCE' | 'SUPPORT',
-          business_name: tenant.config.business_name,
-          language: tenant.config.language as 'SW' | 'EN'
+          businessName: tenant.config.business_name,
+          templateType: tenant.config.template_type,
+          language: tenant.config.language as 'SW' | 'EN',
+          businessContext: tenant.config.business_context ?? null,
+          websiteUrl: tenant.config.website_url ?? null,
         };
-        this.logger.info('Config loaded:', this.config);
+        this.logger.info({ templateType: this.config.templateType }, 'Config loaded');
       }
     } catch (error) {
       this.logger.error('Failed to load config:', error);
@@ -278,19 +280,44 @@ export class WhatsAppBot {
         return;
       }
 
-      // Get response based on template
+      // Get response using Claude AI
       if (!this.config) {
         await this.loadConfig();
       }
-      
-      const replyText = this.config 
-        ? getResponse(msg.body || '', this.config)
-        : 'Thank you for your message. We will get back to you soon.';
+
+      let replyText: string;
+      let handoff = false;
+
+      if (this.config) {
+        try {
+          const result = await getAIResponse(
+            this.tenantId,
+            msg.from,
+            msg.body || '',
+            this.config,
+            this.prisma
+          );
+          replyText = result.text;
+          handoff = result.handoff;
+        } catch (aiError) {
+          this.logger.error('AI response failed, using fallback:', aiError);
+          replyText = this.config.language === 'SW'
+            ? `Karibu ${this.config.businessName}. Samahani, kuna tatizo la muda mfupi. Tafadhali jaribu tena baadaye.`
+            : `Welcome to ${this.config.businessName}. Sorry, we are experiencing a brief issue. Please try again shortly.`;
+        }
+      } else {
+        replyText = 'Thank you for your message. We will get back to you soon.';
+      }
 
       // Send reply
       const reply = await msg.reply(replyText);
-      
-      this.logger.info(`Sent reply to ${msg.from}: ${replyText}`);
+
+      // If handoff needed, notify the business owner (log prominently)
+      if (handoff) {
+        this.logger.warn({ contact: msg.from, tenantId: this.tenantId }, 'HUMAN HANDOFF REQUESTED — customer needs live support');
+      }
+
+      this.logger.info(`Sent reply to ${msg.from}: ${replyText.substring(0, 80)}`);
       
       // Log outgoing message
       await this.prisma.messageLog.create({
@@ -305,7 +332,7 @@ export class WhatsAppBot {
       });
 
       // Update last seen
-      await this.prisma.whatsappSession.update({
+      await this.prisma.whatsAppSession.update({
         where: { tenant_id: this.tenantId },
         data: { last_seen_at: new Date() }
       });
@@ -338,7 +365,7 @@ export class WhatsAppBot {
         const now = new Date();
         
         // Update session last_seen_at
-        await this.prisma.whatsappSession.update({
+        await this.prisma.whatsAppSession.update({
           where: { tenant_id: this.tenantId },
           data: { last_seen_at: now }
         });

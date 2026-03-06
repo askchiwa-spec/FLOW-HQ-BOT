@@ -17,6 +17,8 @@ const templates = [
     ),
     features: ['Auto-scheduling', 'Reminder messages', 'Rescheduling support', 'Multi-service booking'],
     popular: true,
+    comingSoon: false,
+    templateType: 'BOOKING',
   },
   {
     id: 'sales',
@@ -30,6 +32,8 @@ const templates = [
     ),
     features: ['Product catalog', 'Order tracking', 'Payment integration', 'Delivery updates'],
     popular: true,
+    comingSoon: false,
+    templateType: 'ECOMMERCE',
   },
   {
     id: 'support',
@@ -43,6 +47,8 @@ const templates = [
     ),
     features: ['FAQ automation', 'Ticket creation', 'Live agent handoff', 'Feedback collection'],
     popular: false,
+    comingSoon: false,
+    templateType: 'SUPPORT',
   },
   {
     id: 'real-estate',
@@ -56,6 +62,8 @@ const templates = [
     ),
     features: ['Property listings', 'Virtual tours', 'Viewing schedules', 'Lead qualification'],
     popular: false,
+    comingSoon: false,
+    templateType: 'REAL_ESTATE',
   },
   {
     id: 'restaurant',
@@ -69,6 +77,8 @@ const templates = [
     ),
     features: ['Table booking', 'Menu showcase', 'Delivery orders', 'Special offers'],
     popular: false,
+    comingSoon: false,
+    templateType: 'RESTAURANT',
   },
   {
     id: 'healthcare',
@@ -82,6 +92,8 @@ const templates = [
     ),
     features: ['Appointment booking', 'Reminders', 'Health tips', 'Emergency contacts'],
     popular: false,
+    comingSoon: false,
+    templateType: 'HEALTHCARE',
   },
 ];
 
@@ -149,9 +161,16 @@ export default function TemplatesPage() {
                     <div className="absolute inset-0 bg-gradient-to-t from-dark-900 via-dark-900/60 to-transparent" />
                     
                     {/* Popular Badge */}
-                    {template.popular && (
+                    {template.popular && !template.comingSoon && (
                       <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-primary-500/90 text-white text-xs font-medium backdrop-blur-sm">
                         Popular
+                      </div>
+                    )}
+
+                    {/* Coming Soon Badge */}
+                    {template.comingSoon && (
+                      <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-slate-700/90 text-slate-300 text-xs font-medium backdrop-blur-sm">
+                        Coming Soon
                       </div>
                     )}
                     
@@ -183,15 +202,21 @@ export default function TemplatesPage() {
                     </div>
 
                     {/* CTA */}
-                    <Link 
-                      href="/app/onboarding"
-                      className="inline-flex items-center gap-2 text-primary-400 text-sm font-medium hover:text-primary-300 transition-colors"
-                    >
-                      Use this template
-                      <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    </Link>
+                    {template.comingSoon ? (
+                      <span className="inline-flex items-center gap-2 text-slate-500 text-sm font-medium cursor-not-allowed">
+                        Coming Soon
+                      </span>
+                    ) : (
+                      <Link
+                        href={`/app/onboarding?template=${template.templateType}`}
+                        className="inline-flex items-center gap-2 text-primary-400 text-sm font-medium hover:text-primary-300 transition-colors"
+                      >
+                        Use this template
+                        <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        </svg>
+                      </Link>
+                    )}
                   </div>
                 </div>
               </motion.div>

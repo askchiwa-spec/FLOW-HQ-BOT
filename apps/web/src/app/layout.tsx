@@ -13,12 +13,12 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata = {
-  title: 'Flow HQ - WhatsApp Business Assistant | Made in Tanzania',
+  title: 'Chatisha - WhatsApp Business Assistant | Made in Tanzania',
   description: 'Transform your WhatsApp into a 24/7 business assistant. Automated booking, sales, and support for Tanzanian businesses.',
   keywords: 'WhatsApp automation, business assistant, Tanzania, chatbot, booking system, customer support',
-  authors: [{ name: 'Flow HQ' }],
+  authors: [{ name: 'Chatisha' }],
   openGraph: {
-    title: 'Flow HQ - WhatsApp Business Assistant',
+    title: 'Chatisha - WhatsApp Business Assistant',
     description: 'Never miss a customer. Automate your business with WhatsApp.',
     type: 'website',
   },
@@ -31,7 +31,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
+      <body suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

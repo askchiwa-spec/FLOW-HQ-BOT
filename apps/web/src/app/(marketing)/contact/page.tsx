@@ -1,9 +1,22 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 
 export default function ContactPage() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [message, setMessage] = useState('');
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const text = `Hi Chatisha! I'd like to get in touch.\n\nName: ${name}\nEmail: ${email}${phone ? `\nPhone: ${phone}` : ''}\n\nMessage: ${message}`;
+    const url = `https://wa.me/255765111131?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
   return (
     <div className="min-h-screen pt-32 pb-20 relative overflow-hidden">
       {/* Background Image */}
@@ -65,8 +78,8 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <h3 className="text-white font-semibold mb-1">WhatsApp</h3>
-                  <a href="https://wa.me/255712345678" className="text-primary-400 hover:text-primary-300 transition-colors">
-                    +255 712 345 678
+                  <a href="https://wa.me/255765111131" className="text-primary-400 hover:text-primary-300 transition-colors">
+                    +255 765 111 131
                   </a>
                 </div>
               </div>
@@ -79,8 +92,8 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <h3 className="text-white font-semibold mb-1">Email</h3>
-                  <a href="mailto:support@flowhq.io" className="text-secondary-400 hover:text-secondary-300 transition-colors">
-                    support@flowhq.io
+                  <a href="mailto:business@chatisha.io" className="text-secondary-400 hover:text-secondary-300 transition-colors">
+                    business@chatisha.io
                   </a>
                 </div>
               </div>
@@ -113,7 +126,7 @@ export default function ContactPage() {
             animate={{ opacity: 1, x: 0 }}
             className="bg-dark-800/50 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
           >
-            <form className="space-y-6">
+            <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-white mb-2">
                   Name
@@ -122,6 +135,9 @@ export default function ContactPage() {
                   type="text"
                   name="name"
                   id="name"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   className="w-full bg-dark-700/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
                   placeholder="Your name"
                 />
@@ -134,6 +150,9 @@ export default function ContactPage() {
                   type="email"
                   name="email"
                   id="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-dark-700/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
                   placeholder="your@email.com"
                 />
@@ -146,6 +165,8 @@ export default function ContactPage() {
                   type="tel"
                   name="phone"
                   id="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   className="w-full bg-dark-700/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
                   placeholder="+255 7XX XXX XXX"
                 />
@@ -158,12 +179,15 @@ export default function ContactPage() {
                   name="message"
                   id="message"
                   rows={4}
+                  required
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
                   className="w-full bg-dark-700/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors resize-none"
                   placeholder="Tell us about your business and what you need..."
                 />
               </div>
               <Button type="submit" className="w-full">
-                Send Message
+                Send Message via WhatsApp
               </Button>
             </form>
           </motion.div>

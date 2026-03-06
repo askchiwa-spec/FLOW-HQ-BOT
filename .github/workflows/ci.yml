@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-check:
+    name: Type Check & Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: chatisha_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/chatisha_ci
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.19.0'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=packages/shared/src/prisma/schema.prisma
+
+      - name: Run DB migrations (CI database)
+        run: npx prisma migrate deploy --schema=packages/shared/src/prisma/schema.prisma
+
+      - name: Build shared package
+        run: npm run build --workspace=@chatisha/shared
+
+      - name: Type check control-plane
+        run: npx tsc --noEmit
+        working-directory: apps/control-plane
+
+      - name: Type check worker
+        run: npx tsc --noEmit
+        working-directory: apps/worker
+
+      - name: Build control-plane
+        run: npm run build --workspace=@chatisha/control-plane
+
+      - name: Build worker
+        run: npm run build --workspace=@chatisha/worker
+
+      - name: Build web (Next.js)
+        run: npm run build --workspace=@chatisha/web
+        env:
+          # Dummy values — Next.js build doesn't need real credentials
+          NEXTAUTH_URL: http://localhost:3001
+          NEXTAUTH_SECRET: ci-secret-placeholder
+          GOOGLE_CLIENT_ID: placeholder
+          GOOGLE_CLIENT_SECRET: placeholder
+          CONTROL_PLANE_URL: http://localhost:3000
+          PORTAL_INTERNAL_KEY: ci-key

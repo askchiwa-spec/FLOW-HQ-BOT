@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import { WhatsAppBot } from './bot';
-import { createLogger } from '@flowhq/shared';
+import { createLogger } from '@chatisha/shared';
 
 dotenv.config();
 

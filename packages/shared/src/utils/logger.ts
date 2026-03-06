@@ -3,11 +3,9 @@ import path from 'path';
 import fs from 'fs';
 
 export function createLogger(tenantId?: string) {
-  const logsDir = path.join(process.cwd(), '..', '..', 'logs');
-  
-  if (!fs.existsSync(logsDir)) {
-    fs.mkdirSync(logsDir, { recursive: true });
-  }
+  const logsDir = process.env.LOGS_PATH
+    ? path.resolve(process.env.LOGS_PATH)
+    : path.join(process.cwd(), '..', '..', 'logs');
 
   const transports: pino.TransportTargetOptions[] = [
     {
@@ -17,10 +15,17 @@ export function createLogger(tenantId?: string) {
   ];
 
   if (tenantId) {
-    transports.push({
-      target: 'pino/file',
-      options: { destination: path.join(logsDir, `${tenantId}.log`) }
-    });
+    try {
+      if (!fs.existsSync(logsDir)) {
+        fs.mkdirSync(logsDir, { recursive: true });
+      }
+      transports.push({
+        target: 'pino/file',
+        options: { destination: path.join(logsDir, `${tenantId}.log`) }
+      });
+    } catch {
+      // If log directory can't be created (e.g. wrong cwd context), skip file logging
+    }
   }
 
   return pino({

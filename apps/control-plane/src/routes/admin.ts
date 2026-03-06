@@ -1,27 +1,15 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient, logger } from '@flowhq/shared';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
+import { PrismaClient, logger } from '@chatisha/shared';
+import { startWorker, stopWorker, restartWorker, isWorkerRunning } from '../provisioner';
 
-const execAsync = promisify(exec);
 const router = Router();
 const prisma = new PrismaClient();
 
-const WORKER_SCRIPT_PATH = path.join(__dirname, '..', '..', '..', 'worker', 'dist', 'worker.js');
 const STALE_THRESHOLD_MINUTES = parseInt(process.env.STALE_THRESHOLD_MINUTES || '2');
 
-/**
- * Check if a PM2 process is running
- */
-async function isPM2ProcessRunning(pm2Name: string): Promise<boolean> {
-  try {
-    const { stdout } = await execAsync(`pm2 describe "${pm2Name}"`);
-    return stdout.includes('online') || stdout.includes('running');
-  } catch {
-    return false;
-  }
-}
+router.get('/', (req: Request, res: Response) => {
+  res.redirect('/admin/tenants');
+});
 
 /**
  * Mark stale workers as ERROR
@@ -175,56 +163,22 @@ router.post('/tenants/:id/worker/start', async (req: Request, res: Response) => 
   try {
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.params.id },
-      include: { worker_process: true }
+      include: { worker_process: true },
     });
-    
-    if (!tenant) {
-      return res.status(404).json({ error: 'Tenant not found' });
-    }
-    
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
     const pm2Name = tenant.worker_process?.pm2_name || `worker-${tenant.id.slice(0, 8)}`;
-    
-    // Check if worker is already running
-    const isRunning = await isPM2ProcessRunning(pm2Name);
-    if (isRunning) {
-      return res.status(400).json({ 
-        error: 'Worker already running',
-        message: 'Use restart if you need to reload the worker'
-      });
+
+    if (await isWorkerRunning(pm2Name)) {
+      return res.status(400).json({ error: 'Worker already running. Use restart to reload.' });
     }
-    
-    const sessionsPath = path.join(process.cwd(), '..', '..', 'sessions', tenant.id);
-    
-    const command = `pm2 start ${WORKER_SCRIPT_PATH} --name "${pm2Name}" --env TENANT_ID=${tenant.id} --env SESSIONS_PATH=${sessionsPath}`;
-    
-    await execAsync(command);
-    
-    await prisma.workerProcess.update({
-      where: { tenant_id: tenant.id },
-      data: { 
-        status: 'RUNNING',
-        pm2_name: pm2Name,
-        last_error: null
-      }
-    });
-    
-    await prisma.tenant.update({
-      where: { id: tenant.id },
-      data: { status: 'QR_PENDING' }
-    });
-    
+
+    const result = await startWorker(tenant.id, pm2Name, prisma);
+    if (!result.success) return res.status(500).json({ error: 'Failed to start worker', detail: result.error });
+
     res.json({ success: true, message: 'Worker started' });
   } catch (error) {
     logger.error('Error starting worker:', error);
-    
-    await prisma.workerProcess.update({
-      where: { tenant_id: req.params.id },
-      data: { 
-        status: 'ERROR',
-        last_error: String(error)
-      }
-    });
-    
     res.status(500).json({ error: 'Failed to start worker' });
   }
 });
@@ -233,20 +187,11 @@ router.post('/tenants/:id/worker/stop', async (req: Request, res: Response) => {
   try {
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.params.id },
-      include: { worker_process: true }
+      include: { worker_process: true },
     });
-    
-    if (!tenant || !tenant.worker_process) {
-      return res.status(404).json({ error: 'Tenant or worker not found' });
-    }
-    
-    await execAsync(`pm2 stop "${tenant.worker_process.pm2_name}"`);
-    
-    await prisma.workerProcess.update({
-      where: { tenant_id: tenant.id },
-      data: { status: 'STOPPED' }
-    });
-    
+    if (!tenant?.worker_process) return res.status(404).json({ error: 'Tenant or worker not found' });
+
+    await stopWorker(tenant.id, tenant.worker_process.pm2_name, prisma);
     res.json({ success: true, message: 'Worker stopped' });
   } catch (error) {
     logger.error('Error stopping worker:', error);
@@ -258,23 +203,13 @@ router.post('/tenants/:id/worker/restart', async (req: Request, res: Response) =
   try {
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.params.id },
-      include: { worker_process: true }
+      include: { worker_process: true },
     });
-    
-    if (!tenant || !tenant.worker_process) {
-      return res.status(404).json({ error: 'Tenant or worker not found' });
-    }
-    
-    await execAsync(`pm2 restart "${tenant.worker_process.pm2_name}"`);
-    
-    await prisma.workerProcess.update({
-      where: { tenant_id: tenant.id },
-      data: { 
-        status: 'RUNNING',
-        last_error: null
-      }
-    });
-    
+    if (!tenant?.worker_process) return res.status(404).json({ error: 'Tenant or worker not found' });
+
+    const result = await restartWorker(tenant.id, tenant.worker_process.pm2_name, prisma);
+    if (!result.success) return res.status(500).json({ error: 'Failed to restart worker', detail: result.error });
+
     res.json({ success: true, message: 'Worker restarted' });
   } catch (error) {
     logger.error('Error restarting worker:', error);
@@ -286,48 +221,44 @@ router.post('/tenants/:id/worker/force-restart', async (req: Request, res: Respo
   try {
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.params.id },
-      include: { worker_process: true }
+      include: { worker_process: true },
     });
-    
-    if (!tenant || !tenant.worker_process) {
-      return res.status(404).json({ error: 'Tenant or worker not found' });
-    }
-    
-    const pm2Name = tenant.worker_process.pm2_name;
-    
-    // Try to stop if running
-    try {
-      await execAsync(`pm2 stop "${pm2Name}"`);
-    } catch {
-      // Ignore stop errors
-    }
-    
-    // Wait a moment
-    await new Promise(r => setTimeout(r, 1000));
-    
-    // Start fresh
-    const sessionsPath = path.join(process.cwd(), '..', '..', 'sessions', tenant.id);
-    const command = `pm2 start ${WORKER_SCRIPT_PATH} --name "${pm2Name}" --env TENANT_ID=${tenant.id} --env SESSIONS_PATH=${sessionsPath}`;
-    
-    await execAsync(command);
-    
-    await prisma.workerProcess.update({
-      where: { tenant_id: tenant.id },
-      data: { 
-        status: 'RUNNING',
-        last_error: null
-      }
-    });
-    
-    await prisma.tenant.update({
-      where: { id: tenant.id },
-      data: { status: 'QR_PENDING' }
-    });
-    
+    if (!tenant?.worker_process) return res.status(404).json({ error: 'Tenant or worker not found' });
+
+    const result = await restartWorker(tenant.id, tenant.worker_process.pm2_name, prisma);
+    if (!result.success) return res.status(500).json({ error: 'Failed to force-restart worker', detail: result.error });
+
     res.json({ success: true, message: 'Worker force-restarted' });
   } catch (error) {
     logger.error('Error force-restarting worker:', error);
     res.status(500).json({ error: 'Failed to force-restart worker' });
+  }
+});
+
+router.post('/tenants/:id/subscription', async (req: Request, res: Response) => {
+  try {
+    const { subscription_end_date, subscription_status } = req.body;
+
+    await prisma.tenant.update({
+      where: { id: req.params.id },
+      data: {
+        subscription_end_date: subscription_end_date ? new Date(subscription_end_date) : null,
+        subscription_status: subscription_status || 'ACTIVE',
+      },
+    });
+
+    await prisma.portalEventLog.create({
+      data: {
+        tenant_id: req.params.id,
+        event_type: 'PAYMENT_RECORDED',
+        payload_json: { subscription_end_date, subscription_status },
+      },
+    });
+
+    res.redirect('/admin/tenants/' + req.params.id);
+  } catch (error) {
+    logger.error('Error updating subscription:', error);
+    res.status(500).json({ error: 'Failed to update subscription' });
   }
 });
 
@@ -432,46 +363,19 @@ router.post('/setup-requests/:id/approve', async (req: Request, res: Response) =
     // Update setup request to APPROVED
     await prisma.setupRequest.update({
       where: { id: req.params.id },
-      data: {
-        status: 'APPROVED',
-        notes: notes || undefined,
-      },
+      data: { status: 'APPROVED', notes: notes || undefined },
     });
-    
-    // Update tenant status
-    await prisma.tenant.update({
-      where: { id: setupRequest.tenant_id },
-      data: { status: 'QR_PENDING' },
-    });
-    
-    // Start the worker
+
+    // Start the worker via provisioner
     const pm2Name = setupRequest.tenant.worker_process?.pm2_name || `worker-${setupRequest.tenant.id.slice(0, 8)}`;
-    const sessionsPath = path.join(process.cwd(), '..', '..', 'sessions', setupRequest.tenant.id);
-    const command = `pm2 start ${WORKER_SCRIPT_PATH} --name "${pm2Name}" --env TENANT_ID=${setupRequest.tenant.id} --env SESSIONS_PATH=${sessionsPath}`;
-    
-    try {
-      await execAsync(command);
-      
-      await prisma.workerProcess.update({
-        where: { tenant_id: setupRequest.tenant_id },
-        data: {
-          status: 'RUNNING',
-          pm2_name: pm2Name,
-          last_error: null,
-        },
-      });
-      
-      await prisma.tenant.update({
-        where: { id: setupRequest.tenant_id },
-        data: { status: 'QR_PENDING' },
-      });
-      
+    const result = await startWorker(setupRequest.tenant.id, pm2Name, prisma);
+
+    if (result.success) {
       logger.info({ requestId: req.params.id, tenantId: setupRequest.tenant_id }, 'Setup request approved and worker started');
-    } catch (workerError) {
-      logger.error('Error starting worker after approval:', workerError);
-      // Still approved, but worker failed to start - admin can retry
+    } else {
+      logger.error({ requestId: req.params.id, error: result.error }, 'Worker failed to start after approval — admin can retry');
     }
-    
+
     // Log event
     await prisma.portalEventLog.create({
       data: {
