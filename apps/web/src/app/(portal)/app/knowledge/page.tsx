@@ -17,6 +17,9 @@ const FILE_ICONS: Record<string, string> = {
   doc: '📝',
   txt: '📃',
   url: '🌐',
+  text: '✏️',
+  xlsx: '📊',
+  xls: '📊',
 };
 
 export default function KnowledgePage() {
@@ -25,6 +28,9 @@ export default function KnowledgePage() {
   const [uploading, setUploading] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [urlLoading, setUrlLoading] = useState(false);
+  const [textContent, setTextContent] = useState('');
+  const [textLabel, setTextLabel] = useState('');
+  const [textLoading, setTextLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,10 +58,16 @@ export default function KnowledgePage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const allowed = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/msword', 'text/plain'];
-    if (!allowed.includes(file.type) && !file.name.match(/\.(pdf|docx|doc|txt)$/i)) {
-      setError('Only PDF, DOCX, DOC, and TXT files are allowed.');
+    const allowed = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'text/plain',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ];
+    if (!allowed.includes(file.type) && !file.name.match(/\.(pdf|docx|doc|txt|xlsx|xls)$/i)) {
+      setError('Only PDF, DOCX, DOC, TXT, XLSX, and XLS files are allowed.');
       return;
     }
 
@@ -111,6 +123,29 @@ export default function KnowledgePage() {
     }
   };
 
+  const handleTextSave = async () => {
+    if (!textContent.trim()) return;
+    setError(null);
+    setTextLoading(true);
+    try {
+      const res = await fetch('/api/portal/documents/text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: textContent.trim(), label: textLabel.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save');
+      setTextContent('');
+      setTextLabel('');
+      showSuccess('Knowledge notes saved successfully.');
+      await fetchDocs();
+    } catch (err: any) {
+      setError(err.message || 'Failed to save text.');
+    } finally {
+      setTextLoading(false);
+    }
+  };
+
   const handleDelete = async (doc: Doc) => {
     if (!confirm(`Remove "${doc.filename}" from your knowledge base?`)) return;
 
@@ -162,16 +197,31 @@ export default function KnowledgePage() {
       {/* Upload File */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
         className="bg-dark-800/50 backdrop-blur-sm rounded-2xl p-6 border border-white/10 mb-6">
-        <h2 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
-          <span className="w-8 h-8 rounded-lg bg-primary-500/20 flex items-center justify-center text-base">📎</span>
-          Upload Documents
-        </h2>
-        <p className="text-sm text-slate-400 mb-5">PDF, Word (.docx/.doc), or plain text — up to 20 MB per file.</p>
+        <div className="flex items-start justify-between mb-1">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-primary-500/20 flex items-center justify-center text-base">📎</span>
+            Upload Documents
+          </h2>
+          <a
+            href="/products-template.csv"
+            download="products-template.csv"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-all"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download Excel Template
+          </a>
+        </div>
+        <p className="text-sm text-slate-400 mb-5">
+          PDF, Word, plain text, or <span className="text-emerald-400 font-medium">Excel (.xlsx/.xls)</span> — up to 20 MB.
+          Use the template above to list your products/services with prices.
+        </p>
 
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.docx,.doc,.txt"
+          accept=".pdf,.docx,.doc,.txt,.xlsx,.xls"
           onChange={handleFileUpload}
           className="hidden"
           id="file-upload"
@@ -200,7 +250,7 @@ export default function KnowledgePage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
               <span className="text-sm text-slate-400">Click to upload or drag and drop</span>
-              <span className="text-xs text-slate-600 mt-1">PDF · DOCX · DOC · TXT</span>
+              <span className="text-xs text-slate-600 mt-1">PDF · DOCX · DOC · TXT · XLSX · XLS</span>
             </>
           )}
         </label>
@@ -231,6 +281,40 @@ export default function KnowledgePage() {
             {urlLoading ? 'Saving...' : 'Save URL'}
           </button>
         </div>
+      </motion.div>
+
+      {/* Type Knowledge Directly */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
+        className="bg-dark-800/50 backdrop-blur-sm rounded-2xl p-6 border border-white/10 mb-6">
+        <h2 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+          <span className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-base">✏️</span>
+          Type Knowledge Directly
+        </h2>
+        <p className="text-sm text-slate-400 mb-4">
+          Write your business information directly — great for Swahili content, local prices, or short FAQs.
+          <span className="text-emerald-400"> If your bot language is Swahili, write this in Swahili.</span>
+        </p>
+        <input
+          type="text"
+          value={textLabel}
+          onChange={(e) => setTextLabel(e.target.value)}
+          placeholder="Label (optional, e.g. &quot;Orodha ya Huduma&quot;)"
+          className="w-full bg-dark-700/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors text-sm mb-3"
+        />
+        <textarea
+          value={textContent}
+          onChange={(e) => setTextContent(e.target.value)}
+          placeholder={`Write your knowledge here...\n\nMfano (Swahili):\nHuduma zetu:\n- Nywele: TZS 5,000\n- Ndevu: TZS 3,000\nSaa za kazi: Jumatatu–Jumamosi, 8am–6pm`}
+          rows={7}
+          className="w-full bg-dark-700/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors text-sm resize-none mb-3"
+        />
+        <button
+          onClick={handleTextSave}
+          disabled={textLoading || !textContent.trim()}
+          className="px-5 py-3 bg-primary-500/10 border border-primary-500/20 text-primary-400 rounded-xl text-sm font-medium hover:bg-primary-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        >
+          {textLoading ? 'Saving...' : 'Save Notes'}
+        </button>
       </motion.div>
 
       {/* Document List */}
@@ -300,6 +384,7 @@ export default function KnowledgePage() {
         <p className="text-sm text-amber-400/80">
           Your documents are used by the AI to answer customer questions accurately. Include your full price list,
           services, opening hours, policies, and any FAQs. The more detail you provide, the better the bot performs.
+          {' '}<strong>If your bot language is Swahili, write your knowledge base content in Swahili</strong> — this helps the AI use the right words and prices naturally.
         </p>
       </motion.div>
     </div>

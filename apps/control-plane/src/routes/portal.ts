@@ -118,16 +118,26 @@ router.post('/setup-request', portalAuthMiddleware, async (req: Request, res: Re
       },
     });
 
-    // Auto-approve: create setup request already in APPROVED state
-    const setupRequest = await prisma.setupRequest.create({
-      data: {
-        tenant_id: user.tenant.id,
-        user_id: user.id,
-        template_type: templateType,
-        whatsapp_number: whatsappNumber,
-        status: 'APPROVED',
-      },
+    // Auto-approve: upsert so resubmissions update rather than create duplicate rows
+    const existing = await prisma.setupRequest.findFirst({
+      where: { tenant_id: user.tenant.id },
+      orderBy: { created_at: 'desc' },
     });
+
+    const setupRequest = existing
+      ? await prisma.setupRequest.update({
+          where: { id: existing.id },
+          data: { template_type: templateType, whatsapp_number: whatsappNumber, status: 'APPROVED' },
+        })
+      : await prisma.setupRequest.create({
+          data: {
+            tenant_id: user.tenant.id,
+            user_id: user.id,
+            template_type: templateType,
+            whatsapp_number: whatsappNumber,
+            status: 'APPROVED',
+          },
+        });
 
     // Log submission event
     await prisma.portalEventLog.create({

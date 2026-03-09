@@ -235,6 +235,30 @@ router.post('/tenants/:id/worker/force-restart', async (req: Request, res: Respo
   }
 });
 
+router.delete('/tenants/:id', async (req: Request, res: Response) => {
+  try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.params.id },
+      include: { worker_process: true },
+    });
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    // Stop worker first if running
+    if (tenant.worker_process?.pm2_name) {
+      await stopWorker(tenant.id, tenant.worker_process.pm2_name, prisma).catch(() => {});
+    }
+
+    // Delete tenant — cascades to all related records (config, session, worker, logs, messages)
+    await prisma.tenant.delete({ where: { id: req.params.id } });
+
+    logger.info({ tenantId: req.params.id, name: tenant.name }, 'Tenant deleted by admin');
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error deleting tenant:', error);
+    res.status(500).json({ error: 'Failed to delete tenant' });
+  }
+});
+
 router.post('/tenants/:id/subscription', async (req: Request, res: Response) => {
   try {
     const { subscription_end_date, subscription_status } = req.body;
@@ -303,12 +327,16 @@ router.get('/tenants/:id/logs', async (req: Request, res: Response) => {
 
 router.get('/setup-requests', async (req: Request, res: Response) => {
   try {
-    const requests = await prisma.setupRequest.findMany({
-      include: {
-        tenant: true,
-        user: true,
-      },
+    // Fetch all, then deduplicate — keep only the most recent request per tenant
+    const all = await prisma.setupRequest.findMany({
+      include: { tenant: true, user: true },
       orderBy: { created_at: 'desc' },
+    });
+    const seen = new Set<string>();
+    const requests = all.filter((r) => {
+      if (seen.has(r.tenant_id)) return false;
+      seen.add(r.tenant_id);
+      return true;
     });
     
     if (req.headers.accept?.includes('application/json')) {

@@ -19,21 +19,16 @@ export async function POST(req: NextRequest) {
   const tenantId = user?.tenant_id;
   if (!tenantId) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
 
-  // Forward the multipart form data directly to control-plane
-  const formData = await req.formData();
-  const body = new FormData();
-  const entries = Array.from(formData.entries());
-  for (const [key, value] of entries) {
-    body.append(key, value as any);
-  }
+  const { content, label } = await req.json();
 
-  const res = await fetch(`${CONTROL_PLANE_URL}/portal/documents/upload`, {
+  const res = await fetch(`${CONTROL_PLANE_URL}/portal/documents/text`, {
     method: 'POST',
     headers: {
+      'content-type': 'application/json',
       'x-portal-key': PORTAL_INTERNAL_KEY,
       'x-tenant-id': tenantId,
     },
-    body: body as any,
+    body: JSON.stringify({ content, label }),
   });
 
   const data = await res.json();

@@ -66,6 +66,8 @@
     .phone-cell { font-family: monospace; font-size: 13px; color: var(--text-dim); }
     .date-cell { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
     .count-badge { background: rgba(255,255,255,0.07); color: var(--text-dim); padding: 2px 8px; border-radius: 20px; font-size: 12px; }
+    .btn-danger { background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
+    .btn-danger:hover { background: rgba(239,68,68,0.2); }
   </style>
 </head>
 <body>
@@ -146,8 +148,13 @@
                   </span>
                 </td>
                 <td class="date-cell"><%= new Date(req.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></td>
-                <td>
+                <td style="display:flex;gap:6px;align-items:center;">
                   <a href="/admin/setup-requests/<%= req.id %>" class="btn btn-ghost">Review</a>
+                  <% if (req.tenant_id) { %>
+                  <button class="btn btn-danger delete-tenant-btn"
+                    data-id="<%= req.tenant_id %>"
+                    data-name="<%= req.tenant && req.tenant.name ? req.tenant.name : 'this tenant' %>">Delete</button>
+                  <% } %>
                 </td>
               </tr>
             <% }); %>
@@ -156,5 +163,21 @@
       <% } %>
     </div>
   </main>
+  <script>
+    document.querySelectorAll('.delete-tenant-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var id = btn.getAttribute('data-id');
+        var name = btn.getAttribute('data-name');
+        if (!confirm('Delete tenant "' + name + '" and ALL their data (session, messages, worker)?\n\nThis cannot be undone.')) return;
+        fetch('/admin/tenants/' + id, { method: 'DELETE' })
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (d.success) { window.location.reload(); }
+            else { alert('Error: ' + (d.error || 'Failed to delete')); }
+          })
+          .catch(function() { alert('Request failed'); });
+      });
+    });
+  </script>
 </body>
 </html>

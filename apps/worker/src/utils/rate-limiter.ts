@@ -16,7 +16,10 @@ interface RateLimitEntry {
 
 export class RateLimiter {
   private limits: Map<string, RateLimitEntry> = new Map();
+  private contactLimits: Map<string, RateLimitEntry> = new Map();
   private config: RateLimitConfig;
+  // Per-contact: max 5 replies per 10 minutes — prevents a single contact from spamming
+  private readonly contactConfig: RateLimitConfig = { maxRequests: 5, windowMs: 600000 };
 
   constructor(config?: Partial<RateLimitConfig>) {
     this.config = {
@@ -70,6 +73,24 @@ export class RateLimiter {
     entry.count++;
     this.limits.set(key, entry);
     return { allowed: true, remaining: this.config.maxRequests - entry.count, warningSent: false };
+  }
+
+  /**
+   * Per-contact rate limit — silently suppresses replies to a single spammy contact.
+   * Max 5 replies per contact per 10 minutes.
+   */
+  checkContactLimit(contact: string): { allowed: boolean } {
+    const now = Date.now();
+    const entry = this.contactLimits.get(contact);
+    if (!entry || now - entry.windowStart > this.contactConfig.windowMs) {
+      this.contactLimits.set(contact, { count: 1, windowStart: now, warningSent: false });
+      return { allowed: true };
+    }
+    if (entry.count >= this.contactConfig.maxRequests) {
+      return { allowed: false };
+    }
+    entry.count++;
+    return { allowed: true };
   }
 
   /**

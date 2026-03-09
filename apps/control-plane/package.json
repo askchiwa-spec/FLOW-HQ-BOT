@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && cp src/views/*.ejs dist/views/",
     "start": "node dist/server.js"
   },
   "dependencies": {
@@ -15,7 +15,8 @@
     "mammoth": "^1.11.0",
     "multer": "^2.1.1",
     "pdf-parse": "^2.4.5",
-    "pm2": "^5.3.0"
+    "pm2": "^5.3.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

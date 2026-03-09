@@ -10,7 +10,11 @@ import { PrismaClient, logger } from '@chatisha/shared';
 
 const execAsync = promisify(exec);
 
-const WORKER_SCRIPT_PATH = path.join(__dirname, '..', '..', 'worker', 'dist', 'worker.js');
+// Resolve pm2 binary from the same bin dir as the running node process (works with NVM)
+const PM2_BIN = path.join(path.dirname(process.execPath), 'pm2');
+// Use symlinked path (no spaces) — PM2 cannot handle spaces in script paths
+const PROJECT_ROOT = '/Users/baamrecs/flowhqbot';
+const WORKER_SCRIPT_PATH = path.join(PROJECT_ROOT, 'apps', 'worker', 'dist', 'worker.js');
 
 function writeEcosystemConfig(pm2Name: string, tenantId: string, sessionsPath: string): string {
   if (!fs.existsSync(sessionsPath)) {
@@ -39,7 +43,7 @@ function writeEcosystemConfig(pm2Name: string, tenantId: string, sessionsPath: s
 
 export async function isWorkerRunning(pm2Name: string): Promise<boolean> {
   try {
-    const { stdout } = await execAsync(`pm2 describe "${pm2Name}"`);
+    const { stdout } = await execAsync(`"${PM2_BIN}" describe "${pm2Name}"`);
     return stdout.includes('online') || stdout.includes('running');
   } catch {
     return false;
@@ -55,7 +59,7 @@ export async function startWorker(
   pm2Name: string,
   prisma: PrismaClient
 ): Promise<{ success: boolean; error?: string }> {
-  const sessionsPath = path.join(process.cwd(), '..', '..', 'sessions', tenantId);
+  const sessionsPath = path.join(PROJECT_ROOT, 'sessions', tenantId);
   const ecosystemPath = writeEcosystemConfig(pm2Name, tenantId, sessionsPath);
 
   const alreadyRunning = await isWorkerRunning(pm2Name);
@@ -65,7 +69,7 @@ export async function startWorker(
   }
 
   try {
-    await execAsync(`pm2 start ${ecosystemPath}`);
+    await execAsync(`"${PM2_BIN}" start "${ecosystemPath}"`);
 
     await prisma.workerProcess.update({
       where: { tenant_id: tenantId },
@@ -101,7 +105,7 @@ export async function stopWorker(
   prisma: PrismaClient
 ): Promise<void> {
   try {
-    await execAsync(`pm2 stop "${pm2Name}"`);
+    await execAsync(`"${PM2_BIN}" delete "${pm2Name}" 2>/dev/null; true`);
   } catch {
     // Ignore — process may already be stopped
   }

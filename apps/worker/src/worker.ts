@@ -43,3 +43,16 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason) => {
   logger.error('Unhandled rejection:', reason);
 });
+
+// F1: Memory watchdog — check RSS every 60s; exit if critical so PM2 restarts cleanly
+const MEMORY_WARN_MB = parseInt(process.env.MEMORY_WARN_MB || '400');
+const MEMORY_CRITICAL_MB = parseInt(process.env.MEMORY_CRITICAL_MB || '600');
+setInterval(() => {
+  const rssMb = process.memoryUsage().rss / 1024 / 1024;
+  if (rssMb > MEMORY_CRITICAL_MB) {
+    logger.error({ rssMb: rssMb.toFixed(1) }, `MEMORY CRITICAL: ${rssMb.toFixed(1)}MB — exiting for PM2 restart`);
+    process.exit(1);
+  } else if (rssMb > MEMORY_WARN_MB) {
+    logger.warn({ rssMb: rssMb.toFixed(1) }, `Memory warning: ${rssMb.toFixed(1)}MB`);
+  }
+}, 60000);

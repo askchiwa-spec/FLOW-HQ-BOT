@@ -23,6 +23,7 @@ export class WhatsAppBot {
   private deduplicator: MessageDeduplicator;
   private reconnectManager: ReconnectManager;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private qrExpiryTimeout: NodeJS.Timeout | null = null;
 
   constructor(tenantId: string, sessionsPath: string) {
     this.tenantId = tenantId;
@@ -77,10 +78,22 @@ export class WhatsAppBot {
   private setupEventHandlers() {
     this.client.on('qr', async (qr) => {
       this.logger.info('QR code received');
-      
+
+      // B2: Reset expiry timer — each new QR gets a fresh 65-second window
+      if (this.qrExpiryTimeout) clearTimeout(this.qrExpiryTimeout);
+      this.qrExpiryTimeout = setTimeout(async () => {
+        if (!this.isReady) {
+          this.logger.warn('QR code expired without being scanned');
+          await this.prisma.workerProcess.update({
+            where: { tenant_id: this.tenantId },
+            data: { last_error: 'QR_EXPIRED: QR code was not scanned within 65 seconds. Restart the worker to get a new QR.' }
+          }).catch(() => {});
+        }
+      }, 65000);
+
       try {
         const qrDataUrl = await QRCode.toDataURL(qr);
-        
+
         await this.prisma.whatsAppSession.update({
           where: { tenant_id: this.tenantId },
           data: {
@@ -88,7 +101,7 @@ export class WhatsAppBot {
             last_qr: qrDataUrl
           }
         });
-        
+
         this.logger.info('QR code saved to database');
       } catch (error) {
         this.logger.error('Failed to process QR code:', error);
@@ -98,7 +111,10 @@ export class WhatsAppBot {
     this.client.on('ready', async () => {
       this.logger.info('WhatsApp client ready');
       this.isReady = true;
-      
+
+      // B2: Cancel QR expiry timer — scan succeeded
+      if (this.qrExpiryTimeout) { clearTimeout(this.qrExpiryTimeout); this.qrExpiryTimeout = null; }
+
       // Reset reconnect manager on successful connection
       this.reconnectManager.reset();
       
@@ -119,9 +135,9 @@ export class WhatsAppBot {
         
         await this.prisma.workerProcess.update({
           where: { tenant_id: this.tenantId },
-          data: { 
+          data: {
             status: 'RUNNING',
-            last_error: null
+            last_error: null   // B1: Clear any DISCONNECTED/BAN_SIGNAL alert on successful reconnect
           }
         });
         
@@ -152,9 +168,12 @@ export class WhatsAppBot {
 
     this.client.on('message', async (msg) => {
       if (!this.isReady) return;
-      
+
       // Skip messages from self
       if (msg.fromMe) return;
+
+      // Skip group messages — only respond to 1-on-1 chats
+      if (msg.from.endsWith('@g.us')) return;
       
       // Check for duplicates
       if (this.deduplicator.isDuplicate(msg.id.id)) {
@@ -199,7 +218,13 @@ export class WhatsAppBot {
           where: { id: this.tenantId },
           data: { status: 'ERROR' }
         });
-        
+
+        // B1: Record disconnect reason so admin panel can show alert
+        await this.prisma.workerProcess.update({
+          where: { tenant_id: this.tenantId },
+          data: { last_error: `DISCONNECTED: ${reason} — worker is attempting to reconnect` }
+        }).catch(() => {});
+
         // Start reconnect process
         this.reconnectManager.start();
       } catch (error) {
@@ -209,17 +234,18 @@ export class WhatsAppBot {
 
     this.client.on('auth_failure', async (msg) => {
       this.logger.error('Auth failure:', msg);
-      
+
       await this.prisma.tenant.update({
         where: { id: this.tenantId },
         data: { status: 'ERROR' }
       });
-      
+
+      // B1: Prefix with BAN_SIGNAL so admin panel can surface a prominent alert
       await this.prisma.workerProcess.update({
         where: { tenant_id: this.tenantId },
-        data: { 
+        data: {
           status: 'ERROR',
-          last_error: `Auth failure: ${msg}`
+          last_error: `BAN_SIGNAL: Auth failure — this number may be banned by WhatsApp. Details: ${msg}`
         }
       });
     });
@@ -239,6 +265,7 @@ export class WhatsAppBot {
           language: tenant.config.language as 'SW' | 'EN',
           businessContext: tenant.config.business_context ?? null,
           websiteUrl: tenant.config.website_url ?? null,
+          hoursJson: (tenant.config.hours_json as Record<string, { open: string; close: string } | null> | null) ?? null,
         };
         this.logger.info({ templateType: this.config.templateType }, 'Config loaded');
       }
@@ -247,9 +274,98 @@ export class WhatsAppBot {
     }
   }
 
+  // Exit keywords — customer wants to stop the bot conversation
+  private readonly EXIT_KEYWORDS = [
+    'stop', 'quit', 'exit', 'unsubscribe', 'end', 'cancel', 'bye', 'goodbye',
+    'acha', 'simama', 'ondoa', 'imaliza', 'kwaheri', 'tutaonana',
+  ];
+
+  // Track contacts who have opted out this session (reset on restart)
+  private optedOut = new Set<string>();
+
+  // Emergency keywords — bypass AI entirely for immediate life-safety response (healthcare template)
+  private readonly EMERGENCY_KEYWORDS = [
+    'emergency', 'dying', 'unconscious', 'accident', 'bleeding', 'fire', 'overdose',
+    'dharura', 'nakufa', 'kupoteza fahamu', 'ajali', 'damu nyingi', 'moto', 'sumu',
+  ];
+
   private async handleMessage(msg: Message) {
     try {
       this.logger.info(`Received message from ${msg.from}: ${msg.body}`);
+
+      const body = (msg.body || '').trim();
+      const lang = this.config?.language ?? 'SW';
+      const bizName = this.config?.businessName ?? 'us';
+
+      // --- Exit / stop ---
+      if (this.EXIT_KEYWORDS.some((kw) => body.toLowerCase() === kw || body.toLowerCase().startsWith(kw + ' '))) {
+        this.optedOut.add(msg.from);
+        // C2: Persist opt-out so it survives worker restarts
+        await this.prisma.conversationMessage.create({
+          data: { tenant_id: this.tenantId, contact: msg.from, role: 'opt_out', content: 'OPT_OUT' }
+        }).catch(() => {});
+        const exitMsg = lang === 'SW'
+          ? `Asante ${msg.from.split('@')[0]}! Umesimamisha mazungumzo na bot wa ${bizName}. Tuma ujumbe wowote kuendelea tena. 👋`
+          : `Thanks! You have stopped the ${bizName} bot. Send any message to start again. 👋`;
+        await msg.reply(exitMsg);
+        this.logger.info({ contact: msg.from }, 'Contact opted out — bot paused for this contact');
+        return;
+      }
+
+      // C2 + C1: Single parallel DB round-trip — opt-out status + first-message check
+      const [priorMsgCount, optOutRecord] = await Promise.all([
+        this.prisma.conversationMessage.count({
+          where: { tenant_id: this.tenantId, contact: msg.from, NOT: { role: 'opt_out' } },
+        }),
+        this.prisma.conversationMessage.findFirst({
+          where: { tenant_id: this.tenantId, contact: msg.from, role: 'opt_out' },
+          select: { id: true },
+        }),
+      ]);
+
+      // C2: Opted-out check (DB-backed, survives restarts)
+      if (this.optedOut.has(msg.from) || optOutRecord) {
+        this.optedOut.delete(msg.from);
+        if (optOutRecord) {
+          await this.prisma.conversationMessage.deleteMany({
+            where: { tenant_id: this.tenantId, contact: msg.from, role: 'opt_out' },
+          }).catch(() => {});
+        }
+        // fall through — treat as fresh start
+      }
+
+      // D1: Business hours check — reply "closed" and skip AI if outside configured hours
+      if (this.config?.hoursJson) {
+        const now = new Date();
+        const dayKey = String(now.getDay()); // 0=Sun … 6=Sat
+        const dayHours = this.config.hoursJson[dayKey] as { open: string; close: string } | null | undefined;
+        const isClosed = !dayHours || (() => {
+          const [openH, openM] = dayHours.open.split(':').map(Number);
+          const [closeH, closeM] = dayHours.close.split(':').map(Number);
+          const cur = now.getHours() * 60 + now.getMinutes();
+          return cur < openH * 60 + openM || cur >= closeH * 60 + closeM;
+        })();
+        if (isClosed) {
+          const hoursStr = dayHours ? `${dayHours.open}–${dayHours.close}` : '';
+          const closedMsg = lang === 'SW'
+            ? `Samahani, ${bizName} ${dayHours ? `imefungwa sasa. Tunafungua ${hoursStr}` : 'imefungwa leo'}. Tuma ujumbe tena wakati huo! 🙏`
+            : `Sorry, ${bizName} is ${dayHours ? `currently closed. Today's hours are ${hoursStr}` : 'closed today'}. Send us a message during business hours! 🙏`;
+          await msg.reply(closedMsg);
+          this.logger.info({ contact: msg.from }, 'Outside business hours — closed message sent');
+          return;
+        }
+      }
+
+      // C1: Trigger message: greet first-time contacts
+      const isFirstMessage = priorMsgCount === 0;
+      if (isFirstMessage) {
+        const triggerMsg = lang === 'SW'
+          ? `Habari! Karibu kwa *${bizName}* 🤝\nNiko hapa kukusaidia. Niambie unachohitaji!`
+          : `Hello! Welcome to *${bizName}* 🤝\nI'm here to help. What can I do for you today?`;
+        await msg.reply(triggerMsg);
+        // Small pause then continue so the AI also processes their first message
+        await new Promise((r) => setTimeout(r, 800));
+      }
       
       // Log incoming message
       await this.prisma.messageLog.create({
@@ -280,9 +396,36 @@ export class WhatsAppBot {
         return;
       }
 
+      // A3: Per-contact rate limit — silently suppress if one contact is hammering the bot
+      if (!this.rateLimiter.checkContactLimit(msg.from).allowed) {
+        this.logger.warn({ contact: msg.from }, 'Per-contact rate limit exceeded, suppressing reply');
+        return;
+      }
+
+      // E1: Emergency pre-check — for healthcare, bypass AI entirely with immediate safety response
+      if (this.config?.templateType === 'HEALTHCARE') {
+        const lowerBody = body.toLowerCase();
+        if (this.EMERGENCY_KEYWORDS.some((kw) => lowerBody.includes(kw))) {
+          const emergencyMsg = lang === 'SW'
+            ? `⚠️ DHARURA: Piga simu ya dharura SASA HIVI — 112 au 999. Usitegemee msaada wa mtandao katika hali ya hatari ya maisha! 🚨`
+            : `⚠️ EMERGENCY: Call emergency services RIGHT NOW — 112 or 999. Do not wait for an online response in a life-threatening situation! 🚨`;
+          await msg.reply(emergencyMsg);
+          this.logger.warn({ contact: msg.from }, 'EMERGENCY KEYWORD DETECTED — sent emergency response, skipping AI');
+          return;
+        }
+      }
+
       // Get response using Claude AI
       if (!this.config) {
         await this.loadConfig();
+      }
+
+      // A2: Show typing indicator before AI call — user sees it during the full processing time
+      try {
+        const chat = await msg.getChat();
+        await chat.sendStateTyping();
+      } catch {
+        // Non-critical — continue if typing indicator fails
       }
 
       let replyText: string;
@@ -308,6 +451,11 @@ export class WhatsAppBot {
       } else {
         replyText = 'Thank you for your message. We will get back to you soon.';
       }
+
+      // A1: Human-like delay — proportional to reply length (30ms/char, capped 800ms–2500ms)
+      // Combined with the AI API latency above, total "typing" time feels natural on WhatsApp
+      const typingDelayMs = Math.min(Math.max(replyText.length * 30, 800), 2500);
+      await new Promise((r) => setTimeout(r, typingDelayMs));
 
       // Send reply
       const reply = await msg.reply(replyText);

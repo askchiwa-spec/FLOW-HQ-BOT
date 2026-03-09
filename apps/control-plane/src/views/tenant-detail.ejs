@@ -138,6 +138,30 @@
       Back to Tenants
     </a>
 
+    <%
+      const lastErr = tenant.worker_process?.last_error || '';
+      const isBanSignal = lastErr.startsWith('BAN_SIGNAL');
+      const isDropped = lastErr.startsWith('DISCONNECTED') || lastErr.startsWith('QR_EXPIRED');
+    %>
+    <% if (isBanSignal) { %>
+    <div style="margin-bottom:20px;padding:16px 20px;border-radius:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);color:#f87171;display:flex;align-items:flex-start;gap:14px;">
+      <span style="font-size:22px;line-height:1;">🚨</span>
+      <div>
+        <strong style="font-size:14px;">Possible ban signal detected</strong><br>
+        <span style="font-size:13px;opacity:0.85;">Auth failure received — this WhatsApp number may be banned. Check the SIM on its phone immediately and do not restart the worker until the number is confirmed safe.</span><br>
+        <code style="font-size:11px;opacity:0.6;display:block;margin-top:6px;word-break:break-all;"><%= lastErr %></code>
+      </div>
+    </div>
+    <% } else if (isDropped) { %>
+    <div style="margin-bottom:20px;padding:16px 20px;border-radius:12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fbbf24;display:flex;align-items:flex-start;gap:14px;">
+      <span style="font-size:22px;line-height:1;">⚠️</span>
+      <div>
+        <strong style="font-size:14px;"><%= lastErr.startsWith('QR_EXPIRED') ? 'QR code expired' : 'WhatsApp session dropped' %></strong><br>
+        <span style="font-size:13px;opacity:0.85;"><%= lastErr.startsWith('QR_EXPIRED') ? 'The QR code was not scanned in time. Restart the worker to generate a fresh QR code.' : 'The session disconnected. Restart the worker — it will attempt to reconnect automatically.' %></span>
+      </div>
+    </div>
+    <% } %>
+
     <div class="page-header">
       <div class="page-header-left">
         <h1><%= tenant.name %></h1>

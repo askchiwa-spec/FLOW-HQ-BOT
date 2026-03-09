@@ -7,8 +7,8 @@ import fs from 'fs';
 const router = Router();
 const prisma = new PrismaClient();
 
-// Uploads directory — stored outside app so it persists across deploys
-const UPLOADS_DIR = path.join(process.cwd(), '..', '..', 'uploads');
+// Uploads directory — stored at project root /uploads
+const UPLOADS_DIR = path.join(__dirname, '..', '..', '..', '..', 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -28,10 +28,10 @@ const upload = multer({
   storage,
   limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
   fileFilter: (req, file, cb) => {
-    const allowed = ['.pdf', '.docx', '.doc', '.txt'];
+    const allowed = ['.pdf', '.docx', '.doc', '.txt', '.xlsx', '.xls'];
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowed.includes(ext)) cb(null, true);
-    else cb(new Error('Only PDF, DOCX, DOC, and TXT files are allowed'));
+    else cb(new Error('Only PDF, DOCX, DOC, TXT, XLSX, and XLS files are allowed'));
   },
 });
 
@@ -49,6 +49,31 @@ async function extractText(filePath: string, ext: string): Promise<string> {
   }
   if (ext === '.txt') {
     return fs.readFileSync(filePath, 'utf-8');
+  }
+  if (ext === '.xlsx' || ext === '.xls') {
+    const XLSX = require('xlsx');
+    const workbook = XLSX.readFile(filePath);
+    const lines: string[] = [];
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      const rows: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      if (rows.length === 0) continue;
+      const headers = rows[0].map((h: string) => String(h).trim());
+      lines.push(`=== ${sheetName} ===`);
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        // Skip completely empty rows
+        if (row.every((cell: string) => !String(cell).trim())) continue;
+        const parts = headers
+          .map((h, idx) => {
+            const val = String(row[idx] ?? '').trim();
+            return val ? `${h}: ${val}` : null;
+          })
+          .filter(Boolean);
+        if (parts.length) lines.push(parts.join(' | '));
+      }
+    }
+    return lines.join('\n');
   }
   return '';
 }
@@ -157,6 +182,38 @@ router.get('/', portalAuthMiddleware, async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Error listing documents:', error);
     res.status(500).json({ error: 'Failed to list documents' });
+  }
+});
+
+/**
+ * POST /portal/documents/text
+ * Save raw typed text directly as a knowledge source (no file upload needed)
+ */
+router.post('/text', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    if (!tenantId) return res.status(400).json({ error: 'x-tenant-id header required' });
+
+    const { content, label } = req.body;
+    if (!content || !content.trim()) return res.status(400).json({ error: 'content is required' });
+
+    const filename = label?.trim() || `Custom notes (${new Date().toLocaleDateString('en-GB')})`;
+
+    const doc = await prisma.businessDocument.create({
+      data: {
+        tenant_id: tenantId,
+        filename,
+        file_type: 'text',
+        content_text: content.trim(),
+      },
+    });
+
+    await rebuildBusinessContext(tenantId);
+
+    res.status(201).json({ id: doc.id, filename: doc.filename, file_type: 'text' });
+  } catch (error) {
+    logger.error('Error saving text knowledge:', error);
+    res.status(500).json({ error: 'Failed to save text' });
   }
 });
 

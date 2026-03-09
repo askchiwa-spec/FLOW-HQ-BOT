@@ -24,6 +24,8 @@ export interface AIConfig {
   language: 'SW' | 'EN';
   businessContext: string | null;
   websiteUrl: string | null;
+  // D1: Business hours — keys 0–6 (Sun–Sat), null means closed that day
+  hoursJson: Record<string, { open: string; close: string } | null> | null;
 }
 
 function buildSystemPrompt(config: AIConfig): string {
