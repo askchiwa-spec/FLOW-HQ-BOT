@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc && cp src/views/*.ejs dist/views/",
+    "build": "tsc && mkdir -p dist/views && cp src/views/*.ejs dist/views/",
     "start": "node dist/server.js"
   },
   "dependencies": {
