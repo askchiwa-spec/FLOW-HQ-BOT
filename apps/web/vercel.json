@@ -1,0 +1,4 @@
+{
+  "buildCommand": "cd ../../packages/shared && npm install && npm run build && cd ../../apps/web && next build",
+  "framework": "nextjs"
+}
