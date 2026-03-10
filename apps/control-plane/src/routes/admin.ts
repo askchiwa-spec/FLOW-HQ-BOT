@@ -333,7 +333,7 @@ router.get('/setup-requests', async (req: Request, res: Response) => {
       orderBy: { created_at: 'desc' },
     });
     const seen = new Set<string>();
-    const requests = all.filter((r) => {
+    const requests = all.filter((r: any) => {
       if (seen.has(r.tenant_id)) return false;
       seen.add(r.tenant_id);
       return true;

@@ -255,8 +255,8 @@ async function rebuildBusinessContext(tenantId: string): Promise<void> {
   });
 
   const parts = docs
-    .filter((d) => d.content_text)
-    .map((d) => `[Source: ${d.filename}]\n${d.content_text}`);
+    .filter((d: any) => d.content_text)
+    .map((d: any) => `[Source: ${d.filename}]\n${d.content_text}`);
 
   const context = parts.join('\n\n---\n\n');
 
