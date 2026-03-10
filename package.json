@@ -8,6 +8,8 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces",
+    "build:vercel": "npx prisma generate --schema=packages/shared/src/prisma/schema.prisma && npm run build --workspace=@chatisha/shared && npm run build --workspace=@chatisha/web",
+    "build:control-plane": "npx prisma generate --schema=packages/shared/src/prisma/schema.prisma && npm run build --workspace=@chatisha/shared && npm run build --workspace=@chatisha/control-plane",
     "db:generate": "npm run db:generate --workspace=@chatisha/shared",
     "db:migrate": "npm run db:migrate --workspace=@chatisha/shared",
     "db:deploy": "npm run db:deploy --workspace=@chatisha/shared",

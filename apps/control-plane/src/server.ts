@@ -45,6 +45,10 @@ app.use(express.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 app.use('/admin', authMiddleware, adminRoutes);
 app.use('/portal', portalRoutes);
 app.use('/portal/documents', documentRoutes);
