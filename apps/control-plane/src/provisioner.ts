@@ -12,8 +12,8 @@ const execAsync = promisify(exec);
 
 // Resolve pm2 binary from the same bin dir as the running node process (works with NVM)
 const PM2_BIN = path.join(path.dirname(process.execPath), 'pm2');
-// Use symlinked path (no spaces) — PM2 cannot handle spaces in script paths
-const PROJECT_ROOT = '/Users/baamrecs/flowhqbot';
+// PROJECT_ROOT can be overridden via env var — required on VPS (set in .env)
+const PROJECT_ROOT = process.env.PROJECT_ROOT || '/home/baamrecs/flowhq-bot';
 const WORKER_SCRIPT_PATH = path.join(PROJECT_ROOT, 'apps', 'worker', 'dist', 'worker.js');
 
 function writeEcosystemConfig(pm2Name: string, tenantId: string, sessionsPath: string): string {
