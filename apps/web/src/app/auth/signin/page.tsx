@@ -1,6 +1,5 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
-import { getProviders } from 'next-auth/react';
 import { authOptions } from '@/lib/auth';
 import SignInButton from './SignInButton';
 
@@ -21,7 +20,6 @@ export default async function SignInPage({ searchParams }: { searchParams: { err
     redirect('/app/onboarding');
   }
 
-  const providers = await getProviders();
   const error = searchParams?.error;
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.default) : null;
 
@@ -68,10 +66,7 @@ export default async function SignInPage({ searchParams }: { searchParams: { err
         {/* Sign in card */}
         <div className="bg-dark-800/50 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
           <div className="space-y-4">
-            {providers &&
-              Object.values(providers).map((provider) => (
-                <SignInButton key={provider.id} provider={provider} />
-              ))}
+            <SignInButton provider={{ id: 'google', name: 'Google' }} />
           </div>
         </div>
 
