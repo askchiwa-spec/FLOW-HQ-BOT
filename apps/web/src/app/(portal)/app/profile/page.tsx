@@ -10,11 +10,15 @@ interface ProfileData {
   templateType: string;
 }
 
-const TEMPLATE_OPTIONS = [
-  { value: 'BOOKING', label: 'Booking & Appointments', desc: 'For clinics, salons, restaurants' },
-  { value: 'ECOMMERCE', label: 'Sales & E-commerce', desc: 'For shops and product businesses' },
-  { value: 'SUPPORT', label: 'Customer Support', desc: 'General FAQ and support' },
-];
+const TEMPLATE_LABELS: Record<string, { label: string; icon: string }> = {
+  SALON: { label: 'Salon & Beauty', icon: '💇' },
+  RESTAURANT: { label: 'Restaurant', icon: '🍽️' },
+  HOTEL: { label: 'Hotel & Lodge', icon: '🏨' },
+  HEALTHCARE: { label: 'Clinic & Healthcare', icon: '🏥' },
+  ECOMMERCE: { label: 'Shop & E-Commerce', icon: '🛒' },
+  BOOKING: { label: 'Booking & Appointments', icon: '📅' },
+  SUPPORT: { label: 'Customer Support', icon: '💬' },
+};
 
 const LANGUAGE_OPTIONS = [
   { value: 'SW', label: 'Swahili' },
@@ -26,7 +30,7 @@ export default function ProfilePage() {
     businessName: '',
     whatsappNumber: '',
     language: 'SW',
-    templateType: 'SUPPORT',
+    templateType: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,7 +45,7 @@ export default function ProfilePage() {
           businessName: data.tenant?.name || '',
           whatsappNumber: data.tenant?.phone_number || '',
           language: data.tenant?.config?.language || 'SW',
-          templateType: data.tenant?.config?.template_type || 'SUPPORT',
+          templateType: data.tenant?.config?.template_type || '',
         });
       })
       .catch(() => setError('Failed to load profile'))
@@ -58,7 +62,11 @@ export default function ProfilePage() {
       const res = await fetch('/api/portal/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile),
+        body: JSON.stringify({
+          businessName: profile.businessName,
+          whatsappNumber: profile.whatsappNumber,
+          language: profile.language,
+        }),
       });
 
       if (!res.ok) {
@@ -83,13 +91,15 @@ export default function ProfilePage() {
     );
   }
 
+  const tmpl = TEMPLATE_LABELS[profile.templateType];
+
   return (
     <div className="max-w-2xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
         <h1 className="text-3xl sm:text-4xl font-heading font-bold text-white mb-2">
           Business <span className="text-primary-400">Profile</span>
         </h1>
-        <p className="text-slate-400">Update your business details and bot configuration</p>
+        <p className="text-slate-400">Update your business details and bot language</p>
       </motion.div>
 
       <motion.form
@@ -99,7 +109,7 @@ export default function ProfilePage() {
         onSubmit={handleSave}
         className="space-y-6"
       >
-        {/* Business Name */}
+        {/* Business Information */}
         <div className="bg-dark-800/50 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
           <h2 className="text-lg font-semibold text-white mb-4">Business Information</h2>
           <div className="space-y-4">
@@ -131,7 +141,7 @@ export default function ProfilePage() {
         <div className="bg-dark-800/50 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
           <h2 className="text-lg font-semibold text-white mb-4">Bot Configuration</h2>
           <div className="space-y-4">
-            {/* Language */}
+            {/* Language — editable */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Bot Language</label>
               <div className="grid grid-cols-2 gap-3">
@@ -152,39 +162,22 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Template Type */}
+            {/* Template — read-only */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Bot Template</label>
-              <div className="space-y-2">
-                {TEMPLATE_OPTIONS.map((tmpl) => (
-                  <button
-                    key={tmpl.value}
-                    type="button"
-                    onClick={() => setProfile({ ...profile, templateType: tmpl.value })}
-                    className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl border text-left transition-all ${
-                      profile.templateType === tmpl.value
-                        ? 'bg-primary-500/10 border-primary-500/40'
-                        : 'bg-dark-700/50 border-white/10 hover:border-white/20'
-                    }`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                        profile.templateType === tmpl.value ? 'border-primary-400' : 'border-slate-600'
-                      }`}
-                    >
-                      {profile.templateType === tmpl.value && (
-                        <div className="w-2 h-2 rounded-full bg-primary-400" />
-                      )}
-                    </div>
-                    <div>
-                      <p className={`text-sm font-medium ${profile.templateType === tmpl.value ? 'text-primary-400' : 'text-white'}`}>
-                        {tmpl.label}
-                      </p>
-                      <p className="text-xs text-slate-500">{tmpl.desc}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              {tmpl ? (
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-dark-700/50 border border-white/10">
+                  <span className="text-xl">{tmpl.icon}</span>
+                  <div>
+                    <p className="text-sm font-medium text-white">{tmpl.label}</p>
+                    <p className="text-xs text-slate-500">Set during onboarding — contact support to change</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-4 py-3 rounded-xl bg-dark-700/50 border border-white/10 text-slate-500 text-sm">
+                  Not set yet — complete onboarding first
+                </div>
+              )}
             </div>
           </div>
         </div>
