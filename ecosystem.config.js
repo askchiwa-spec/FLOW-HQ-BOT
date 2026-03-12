@@ -9,7 +9,7 @@ module.exports = {
       max_memory_restart: '512M',
       env: {
         NODE_ENV: 'production',
-        PORT: 3000,
+        PORT: 3100,
       },
       log_file: './logs/control-plane.log',
       out_file: './logs/control-plane-out.log',
