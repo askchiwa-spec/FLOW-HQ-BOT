@@ -12,7 +12,7 @@ const navigation = [
   { name: 'Onboarding', href: '/app/onboarding', icon: DocumentIcon },
   { name: 'Knowledge Base', href: '/app/knowledge', icon: BrainIcon },
   { name: 'WhatsApp', href: '/app/whatsapp', icon: ChatIcon },
-  { name: 'Messages', href: '/app/logs', icon: InboxIcon },
+  { name: 'Messages', href: '/app/messages', icon: InboxIcon },
   { name: 'Customers', href: '/app/customers', icon: UsersIcon },
 ];
 
