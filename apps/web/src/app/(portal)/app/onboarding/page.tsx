@@ -12,10 +12,10 @@ export default function OnboardingPage() {
   const searchParams = useSearchParams();
 
   const templateFromUrl = searchParams.get('template');
-  const validTemplates = ['BOOKING', 'ECOMMERCE', 'SUPPORT', 'REAL_ESTATE', 'RESTAURANT', 'HEALTHCARE'];
+  const validTemplates = ['SALON', 'RESTAURANT', 'HOTEL', 'HEALTHCARE', 'ECOMMERCE', 'BOOKING', 'ECOMMERCE', 'SUPPORT', 'REAL_ESTATE'];
   const initialTemplate = templateFromUrl && validTemplates.includes(templateFromUrl)
     ? templateFromUrl
-    : 'BOOKING';
+    : 'SALON';
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -146,12 +146,11 @@ export default function OnboardingPage() {
             </label>
             <div className="grid sm:grid-cols-3 gap-3">
               {[
-                { value: 'BOOKING', label: 'Bookings', icon: '📅', desc: 'Appointments & scheduling' },
-                { value: 'ECOMMERCE', label: 'Sales & Orders', icon: '🛒', desc: 'Products & payments' },
-                { value: 'SUPPORT', label: 'Support', icon: '💬', desc: 'Customer service & FAQs' },
-                { value: 'REAL_ESTATE', label: 'Real Estate', icon: '🏠', desc: 'Property listings & viewings' },
-                { value: 'RESTAURANT', label: 'Restaurant', icon: '🍽️', desc: 'Orders & table reservations' },
-                { value: 'HEALTHCARE', label: 'Healthcare', icon: '🏥', desc: 'Appointments & clinic info' },
+                { value: 'SALON', label: 'Salon & Beauty', icon: '💇', desc: 'Booking appointments & reminders' },
+                { value: 'RESTAURANT', label: 'Restaurant', icon: '🍽️', desc: 'Menu, orders & table reservations' },
+                { value: 'HOTEL', label: 'Hotel & Lodge', icon: '🏨', desc: 'Room inquiries & booking requests' },
+                { value: 'HEALTHCARE', label: 'Clinic & Healthcare', icon: '🏥', desc: 'Patient appointments & reminders' },
+                { value: 'ECOMMERCE', label: 'Shop & E-Commerce', icon: '🛒', desc: 'Products, orders & delivery' },
               ].map((option) => (
                 <button
                   key={option.value}

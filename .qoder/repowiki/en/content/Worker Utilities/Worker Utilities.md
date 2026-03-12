@@ -6,6 +6,7 @@
 - [chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts)
 - [dedup.ts](file://apps/worker/src/utils/dedup.ts)
 - [reconnect.ts](file://apps/worker/src/utils/reconnect.ts)
+- [ai.ts](file://apps/worker/src/ai.ts)
 - [bot.ts](file://apps/worker/src/bot.ts)
 - [worker.ts](file://apps/worker/src/worker.ts)
 - [logger.ts](file://packages/shared/src/utils/logger.ts)
@@ -18,17 +19,27 @@
 - [.env.example](file://.env.example)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Added comprehensive AI module documentation covering Claude API integration
+- Updated bot functionality to include AI-powered response capabilities
+- Enhanced conversation history management and human handoff detection
+- Added multi-language support with Swahili and English capabilities
+- Integrated AI conversation management with database persistence
+- Updated architecture diagrams to reflect AI integration
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+6. [AI Module Integration](#ai-module-integration)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
 This document explains the worker utility systems and operational features that keep the WhatsApp worker stable and reliable. It covers:
@@ -37,17 +48,22 @@ This document explains the worker utility systems and operational features that 
 - Message deduplication to avoid duplicate processing
 - Exponential backoff reconnection handling
 - Heartbeat monitoring and stale worker detection with automatic recovery
+- **New**: AI-powered conversation handling with Claude API integration
+- **New**: Intelligent conversation history management
+- **New**: Human handoff detection and escalation
+- **New**: Multi-language support (Swahili/English)
 - Practical configuration, performance tuning, and troubleshooting guidance
 
 These utilities are integrated into the worker runtime and the control plane to ensure resilience, predictable throughput, and observability.
 
 ## Project Structure
-The worker utilities live under the worker app and are consumed by the WhatsApp bot runtime. Shared logging utilities are provided by the shared package. The control plane performs stale worker detection and status updates.
+The worker utilities live under the worker app and are consumed by the WhatsApp bot runtime. The new AI module provides intelligent conversation handling powered by Claude API. Shared logging utilities are provided by the shared package. The control plane performs stale worker detection and status updates.
 
 ```mermaid
 graph TB
 subgraph "Worker App"
 WU["Worker Utilities<br/>rate-limiter.ts<br/>chat-queue.ts<br/>dedup.ts<br/>reconnect.ts"]
+AI["AI Module<br/>ai.ts"]
 WB["WhatsAppBot<br/>bot.ts"]
 WT["Worker Entry<br/>worker.ts"]
 TP["Templates<br/>index.ts<br/>booking.ts"]
@@ -61,6 +77,7 @@ SV["Server<br/>server.ts"]
 end
 WT --> WB
 WB --> WU
+WB --> AI
 WB --> LG
 WB --> TP
 CP --> SV
@@ -68,20 +85,21 @@ CP --> WB
 ```
 
 **Diagram sources**
+- [ai.ts](file://apps/worker/src/ai.ts#L1-L129)
+- [bot.ts](file://apps/worker/src/bot.ts#L1-L438)
 - [rate-limiter.ts](file://apps/worker/src/utils/rate-limiter.ts#L1-L110)
 - [chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L1-L140)
 - [dedup.ts](file://apps/worker/src/utils/dedup.ts#L1-L93)
 - [reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L1-L117)
-- [bot.ts](file://apps/worker/src/bot.ts#L1-L411)
 - [worker.ts](file://apps/worker/src/worker.ts#L1-L46)
-- [index.ts](file://apps/worker/src/templates/index.ts#L1-L70)
+- [index.ts](file://apps/worker/src/templates/index.ts#L1-L79)
 - [booking.ts](file://apps/worker/src/templates/booking.ts#L1-L22)
 - [logger.ts](file://packages/shared/src/utils/logger.ts#L1-L33)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L80)
 - [server.ts](file://apps/control-plane/src/server.ts#L1-L89)
 
 **Section sources**
-- [package.json](file://apps/worker/package.json#L1-L22)
+- [package.json](file://apps/worker/package.json#L1-L23)
 - [logger.ts](file://packages/shared/src/utils/logger.ts#L1-L33)
 - [server.ts](file://apps/control-plane/src/server.ts#L1-L89)
 
@@ -92,22 +110,27 @@ CP --> WB
 - Reconnect Manager: Implements exponential backoff with bounded retries and callbacks for success/failure.
 - Heartbeat Monitoring: Periodically updates last-seen timestamps and worker status for liveness tracking.
 - Stale Worker Detection: Control plane scans for workers without recent heartbeats and marks them as ERROR.
+- **New**: AI Conversation Handler: Integrates with Claude API for intelligent responses with conversation history.
+- **New**: Human Handoff System: Detects escalation requests and notifies business owners.
+- **New**: Multi-language Support: Automatic language switching between Swahili and English.
 
 **Section sources**
 - [rate-limiter.ts](file://apps/worker/src/utils/rate-limiter.ts#L1-L110)
 - [chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L1-L140)
 - [dedup.ts](file://apps/worker/src/utils/dedup.ts#L1-L93)
 - [reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L1-L117)
+- [ai.ts](file://apps/worker/src/ai.ts#L1-L129)
 - [bot.ts](file://apps/worker/src/bot.ts#L333-L367)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L30-L80)
 
 ## Architecture Overview
-The worker initializes utilities, connects to WhatsApp, and processes messages through the queue and rate limiter. Heartbeat updates keep the control plane informed. On disconnections, the reconnect manager attempts exponential backoff reconnection and updates statuses accordingly.
+The worker initializes utilities, connects to WhatsApp, and processes messages through the queue and rate limiter. The new AI module handles intelligent conversation processing with Claude API integration, managing conversation history and detecting human handoff requirements. Heartbeat updates keep the control plane informed. On disconnections, the reconnect manager attempts exponential backoff reconnection and updates statuses accordingly.
 
 ```mermaid
 sequenceDiagram
 participant WP as "Worker Process<br/>worker.ts"
 participant Bot as "WhatsAppBot<br/>bot.ts"
+participant AI as "AI Module<br/>ai.ts"
 participant RL as "RateLimiter<br/>rate-limiter.ts"
 participant CQ as "ChatQueueManager<br/>chat-queue.ts"
 participant DD as "MessageDeduplicator<br/>dedup.ts"
@@ -131,7 +154,13 @@ alt Allowed
 RL-->>CQ : allowed=true
 CQ->>Bot : handleMessage()
 Bot->>DB : log IN
-Bot->>Bot : reply
+Bot->>AI : getAIResponse(tenantId, contact, message, config)
+AI->>DB : load conversation history
+AI->>AI : build system prompt with context
+AI->>AI : call Claude API (Claude Haiku)
+AI->>DB : persist conversation exchange
+AI-->>Bot : {text, handoff}
+Bot->>Bot : reply with AI response
 Bot->>DB : log OUT
 Bot->>DB : update last_seen_at
 else Exceeded
@@ -155,7 +184,8 @@ CP->>DB : mark workerProcess.status=ERROR and tenant.status=ERROR
 
 **Diagram sources**
 - [worker.ts](file://apps/worker/src/worker.ts#L1-L46)
-- [bot.ts](file://apps/worker/src/bot.ts#L1-L411)
+- [bot.ts](file://apps/worker/src/bot.ts#L1-L438)
+- [ai.ts](file://apps/worker/src/ai.ts#L66-L129)
 - [rate-limiter.ts](file://apps/worker/src/utils/rate-limiter.ts#L1-L110)
 - [chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L1-L140)
 - [dedup.ts](file://apps/worker/src/utils/dedup.ts#L1-L93)
@@ -342,22 +372,86 @@ end
 ```
 
 **Diagram sources**
-- [bot.ts](file://apps/worker/src/bot.ts#L333-L367)
+- [bot.ts](file://apps/worker/src/bot.ts#L360-L394)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L30-L80)
 - [server.ts](file://apps/control-plane/src/server.ts#L54-L63)
 
 **Section sources**
-- [bot.ts](file://apps/worker/src/bot.ts#L333-L367)
+- [bot.ts](file://apps/worker/src/bot.ts#L360-L394)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L30-L80)
 - [server.ts](file://apps/control-plane/src/server.ts#L54-L63)
+
+## AI Module Integration
+
+### AI Conversation Handler
+The AI module provides intelligent conversation handling powered by Claude API, featuring conversation history management, human handoff detection, and multi-language support.
+
+#### Key Features
+- **Claude API Integration**: Uses Claude Haiku model (claude-haiku-4-5-20251001) for intelligent responses
+- **Conversation History Management**: Maintains 10-message context windows with automatic pruning
+- **Human Handoff Detection**: Identifies escalation requests and triggers manual intervention
+- **Multi-language Support**: Automatic language switching between Swahili and English
+- **Template Context Integration**: Incorporates business-specific context from tenant configurations
+- **Fallback Mechanisms**: Graceful degradation with informative fallback responses
+
+#### AI Configuration
+The AI system uses a comprehensive configuration object that includes:
+- Business name and template type (BOOKING, ECOMMERCE, SUPPORT, REAL_ESTATE, RESTAURANT, HEALTHCARE)
+- Language preference (SW for Swahili, EN for English)
+- Business context and website URL for enhanced responses
+- Conversation history management with automatic pruning
+
+#### Conversation Flow
+1. **Input Processing**: User messages are analyzed for handoff requirements
+2. **History Loading**: Recent conversation context (up to 10 messages) is retrieved from database
+3. **Prompt Building**: System prompt is constructed with business context and language instructions
+4. **API Call**: Message is sent to Claude API with conversation history
+5. **Response Processing**: AI response is extracted and handoff indicators are checked
+6. **History Persistence**: Both user and AI messages are stored in conversation history
+7. **History Pruning**: Old conversation messages are automatically cleaned up (maintaining 20 most recent)
+
+#### Human Handoff System
+The AI module includes sophisticated handoff detection using trigger phrases:
+- English triggers: "human", "agent", "person", "representative", "staff", "manager", "supervisor", "owner"
+- Swahili triggers: "binadamu", "mtu", "msaada wa mtu", "niongee na mtu"
+- When detected, AI responds with appropriate handoff message and sets handoff flag
+- Business owners receive prominent warnings in logs for manual intervention
+
+#### Multi-language Support
+- **Swahili Mode**: Responses are generated in Swahili, with fallback to English when users write in English
+- **English Mode**: Responses are generated in English, with fallback to Swahili when users write in Swahili
+- **Context Awareness**: Language preferences are maintained throughout conversation history
+- **Handoff Messages**: Handoff notifications are localized to the configured language
+
+```mermaid
+flowchart TD
+AIStart["getAIResponse(tenantId, contact, message, config)"] --> CheckHandoff{"needsHumanHandoff?"}
+CheckHandoff --> |Yes| HandoffMsg["Return localized handoff message<br/>handoff=true"]
+CheckHandoff --> |No| LoadHistory["Load recent conversation history<br/>(up to 10 messages)"]
+LoadHistory --> BuildPrompt["Build system prompt with:<br/>- Business context<br/>- Template instructions<br/>- Language rules<br/>- Website URL"]
+BuildPrompt --> CallClaude["Call Claude API (Claude Haiku)<br/>max_tokens: 400"]
+CallClaude --> ProcessResponse["Extract response text<br/>Check for [HUMAN_NEEDED]<br/>Remove handoff markers"]
+ProcessResponse --> PersistHistory["Persist user and AI messages<br/>to conversation history"]
+PersistHistory --> PruneHistory["Prune old messages<br/>(keep 20 most recent)"]
+PruneHistory --> ReturnResult["Return {text, handoff}"]
+```
+
+**Diagram sources**
+- [ai.ts](file://apps/worker/src/ai.ts#L66-L129)
+
+**Section sources**
+- [ai.ts](file://apps/worker/src/ai.ts#L1-L129)
+- [bot.ts](file://apps/worker/src/bot.ts#L288-L318)
 
 ## Dependency Analysis
 - Worker runtime depends on:
   - Rate limiter, chat queue, deduplicator, and reconnect manager for operational stability.
+  - **New**: AI module for intelligent conversation handling with Claude API integration.
   - Templates for response generation.
   - Shared logger for structured logs.
 - Control plane depends on Prisma to query and update worker status and tenant status.
 - Logging uses pino with pretty printing and optional per-tenant file transport.
+- **New Dependencies**: @anthropic-ai/sdk for Claude API integration, Prisma models for conversation history.
 
 ```mermaid
 graph LR
@@ -365,19 +459,24 @@ Bot["WhatsAppBot"] --> RL["RateLimiter"]
 Bot --> CQ["ChatQueueManager"]
 Bot --> DD["MessageDeduplicator"]
 Bot --> RM["ReconnectManager"]
+Bot --> AI["AI Module"]
 Bot --> TP["Templates"]
 Bot --> LG["Logger"]
-CP["Control Plane"] --> DB["Prisma DB"]
+AI --> Claude["@anthropic-ai/sdk"]
+AI --> DB["Prisma DB"]
+CP["Control Plane"] --> DB
 CP --> Bot
 ```
 
 **Diagram sources**
-- [bot.ts](file://apps/worker/src/bot.ts#L1-L411)
+- [bot.ts](file://apps/worker/src/bot.ts#L1-L438)
+- [ai.ts](file://apps/worker/src/ai.ts#L1-L129)
 - [logger.ts](file://packages/shared/src/utils/logger.ts#L1-L33)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L80)
+- [package.json](file://apps/worker/package.json#L9-L15)
 
 **Section sources**
-- [package.json](file://apps/worker/package.json#L9-L14)
+- [package.json](file://apps/worker/package.json#L9-L15)
 - [logger.ts](file://packages/shared/src/utils/logger.ts#L1-L33)
 
 ## Performance Considerations
@@ -396,8 +495,11 @@ CP --> Bot
 - Heartbeat:
   - Lower HEARTBEAT_INTERVAL_MS for stricter liveness checks; higher values reduce DB load.
   - Align STALE_THRESHOLD_MINUTES with expected downtime and network variability.
-
-[No sources needed since this section provides general guidance]
+- **AI Performance**:
+  - Monitor Claude API response times and token usage for cost optimization.
+  - Adjust conversation history limits (HISTORY_LIMIT) based on business complexity.
+  - Configure handoff thresholds to balance automation vs. human intervention.
+  - Implement conversation pruning to prevent unbounded database growth.
 
 ## Troubleshooting Guide
 - Symptom: Messages not being replied to
@@ -410,9 +512,23 @@ CP --> Bot
 - Symptom: Worker marked as ERROR by control plane
   - Investigate stale threshold and heartbeat intervals.
   - Review worker logs for disconnection reasons and auth failures.
+- **AI-Specific Issues**:
+  - Symptom: AI responses failing or timing out
+    - Check ANTHROPIC_API_KEY configuration and API quota limits.
+    - Verify Claude API availability and response times.
+    - Monitor conversation history database queries for performance issues.
+  - Symptom: Handoff not triggering when requested
+    - Verify handoff trigger phrases are included in user messages.
+    - Check AI response parsing for [HUMAN_NEEDED] markers.
+    - Review conversation history for proper context preservation.
+  - Symptom: Language switching issues
+    - Confirm language configuration in tenant settings.
+    - Verify handoff messages are properly localized.
+    - Check conversation history for mixed language contexts.
 - Logging patterns:
   - Use tenantId in logs for multi-tenant isolation.
   - Leverage structured fields (e.g., chatId, messageId) for correlation.
+  - **New**: Monitor AI response times, handoff requests, and conversation history sizes.
 
 **Section sources**
 - [rate-limiter.ts](file://apps/worker/src/utils/rate-limiter.ts#L78-L93)
@@ -420,20 +536,23 @@ CP --> Bot
 - [dedup.ts](file://apps/worker/src/utils/dedup.ts#L51-L57)
 - [reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L87-L115)
 - [bot.ts](file://apps/worker/src/bot.ts#L185-L225)
+- [ai.ts](file://apps/worker/src/ai.ts#L16-L19)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L30-L80)
 - [logger.ts](file://packages/shared/src/utils/logger.ts#L5-L29)
 
 ## Conclusion
-The worker utilities provide a robust foundation for stable, scalable WhatsApp messaging:
+The worker utilities provide a robust foundation for stable, scalable WhatsApp messaging with enhanced AI capabilities:
 - Rate limiting protects upstream APIs and ensures fair usage.
 - Chat queues serialize per-conversation processing for consistency.
 - Deduplication prevents redundant work and improves reliability.
 - Exponential backoff reconnects improve resilience after transient failures.
 - Heartbeat monitoring and stale worker detection enable automated recovery and observability.
+- **New**: AI-powered conversation handling with Claude API integration provides intelligent responses with conversation context.
+- **New**: Human handoff detection enables seamless escalation to human agents when needed.
+- **New**: Multi-language support ensures accessibility across diverse customer bases.
+- **New**: Conversation history management maintains context awareness throughout interactions.
 
-Together, these components form a resilient system that can handle varying loads, recover from failures, and remain observable and manageable.
-
-[No sources needed since this section summarizes without analyzing specific files]
+Together, these components form a resilient system that can handle varying loads, recover from failures, remain observable and manageable, and deliver intelligent customer service experiences.
 
 ## Appendices
 
@@ -446,32 +565,89 @@ Together, these components form a resilient system that can handle varying loads
 - Control plane
   - STALE_THRESHOLD_MINUTES: Threshold to mark workers as stale (default 2).
   - STALE_CHECK_INTERVAL_MS: Interval for stale worker checks (default 60000 ms).
+- **AI Configuration**
+  - ANTHROPIC_API_KEY: Claude API authentication key.
+  - AI_RESPONSE_TIMEOUT: Timeout for AI API calls (default 30000 ms).
+  - CONVERSATION_HISTORY_LIMIT: Number of messages to include in context (default 10).
+  - MAX_CONVERSATION_PRUNE: Maximum messages to keep per contact (default 20).
 
 **Section sources**
-- [.env.example](file://.env.example#L19-L22)
+- [.env.example](file://.env.example#L16-L36)
 - [bot.ts](file://apps/worker/src/bot.ts#L33-L34)
 - [server.ts](file://apps/control-plane/src/server.ts#L54-L63)
+- [ai.ts](file://apps/worker/src/ai.ts#L6-L7)
 
 ### Monitoring and Observability
 - Logs:
   - Console output with pino-pretty.
   - Optional per-tenant log files for tenantId-scoped logs.
+  - **New**: AI response logging with timing metrics and handoff tracking.
 - Database:
   - workerProcess and tenant status updates for liveness and error tracking.
   - messageLog for audit trails of incoming and outgoing messages.
+  - **New**: conversation_messages table for AI conversation history tracking.
 - Templates:
   - Response generation is configurable by tenant template_type and language.
+  - **New**: AI conversation context integration with business knowledge base.
+- **AI Metrics**:
+  - Conversation history size per contact for performance monitoring.
+  - Handoff request frequency for business insights.
+  - AI response times and success rates for optimization.
 
 **Section sources**
 - [logger.ts](file://packages/shared/src/utils/logger.ts#L1-L33)
 - [bot.ts](file://apps/worker/src/bot.ts#L253-L311)
+- [ai.ts](file://apps/worker/src/ai.ts#L82-L128)
 - [index.ts](file://apps/worker/src/templates/index.ts#L3-L23)
 - [booking.ts](file://apps/worker/src/templates/booking.ts#L1-L22)
 
 ### Deployment Notes
 - The worker is designed to run as a long-lived process with graceful shutdown hooks.
 - The control plane runs as a separate service and coordinates monitoring and recovery.
+- **New**: AI module requires proper Claude API configuration and database schema for conversation history.
+- **New**: Environment variables for AI configuration (ANTHROPIC_API_KEY) must be properly set.
 
 **Section sources**
 - [worker.ts](file://apps/worker/src/worker.ts#L26-L45)
 - [ecosystem.config.js](file://ecosystem.config.js#L1-L19)
+- [package.json](file://apps/worker/package.json#L10-L10)
+
+### AI Integration Architecture
+The AI module integrates seamlessly with the existing worker infrastructure:
+
+```mermaid
+graph TB
+subgraph "AI Module Layer"
+AI["AI Module<br/>ai.ts"]
+Claude["@anthropic-ai/sdk"]
+DB["Conversation History<br/>Prisma Models"]
+end
+subgraph "Worker Infrastructure"
+Bot["WhatsAppBot<br/>bot.ts"]
+RL["Rate Limiter"]
+CQ["Chat Queue"]
+DD["Deduplicator"]
+RM["Reconnect Manager"]
+end
+subgraph "External Services"
+WA["WhatsApp Web API"]
+CP["Control Plane"]
+end
+AI --> Claude
+AI --> DB
+Bot --> AI
+Bot --> RL
+Bot --> CQ
+Bot --> DD
+Bot --> RM
+Bot --> WA
+CP --> DB
+```
+
+**Diagram sources**
+- [ai.ts](file://apps/worker/src/ai.ts#L1-L129)
+- [bot.ts](file://apps/worker/src/bot.ts#L1-L438)
+- [rate-limiter.ts](file://apps/worker/src/utils/rate-limiter.ts#L1-L110)
+- [chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L1-L140)
+- [dedup.ts](file://apps/worker/src/utils/dedup.ts#L1-L93)
+- [reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L1-L117)

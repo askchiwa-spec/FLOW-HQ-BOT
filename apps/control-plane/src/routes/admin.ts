@@ -456,4 +456,105 @@ router.post('/setup-requests/:id/reject', async (req: Request, res: Response) =>
   }
 });
 
+// ─── Customers / Leads (Mini CRM) ──────────────────────────────────────────
+
+router.get('/customers', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.query.tenant as string | undefined;
+    const status = req.query.status as string | undefined;
+
+    const where: any = {};
+    if (tenantId) where.tenant_id = tenantId;
+    if (status) where.lead_status = status;
+
+    const [customers, tenants, total, newCount, pendingCount, confirmedCount] = await Promise.all([
+      prisma.customer.findMany({
+        where,
+        include: { tenant: { include: { config: true } } },
+        orderBy: { last_interaction: 'desc' },
+        take: 300,
+      }),
+      prisma.tenant.findMany({ include: { config: true }, orderBy: { created_at: 'desc' } }),
+      prisma.customer.count({ where: tenantId ? { tenant_id: tenantId } : {} }),
+      prisma.customer.count({ where: { lead_status: 'NEW', ...(tenantId ? { tenant_id: tenantId } : {}) } }),
+      prisma.customer.count({ where: { lead_status: 'PENDING', ...(tenantId ? { tenant_id: tenantId } : {}) } }),
+      prisma.customer.count({ where: { lead_status: 'CONFIRMED', ...(tenantId ? { tenant_id: tenantId } : {}) } }),
+    ]);
+
+    res.render('customers', {
+      customers,
+      tenants,
+      stats: { total, new: newCount, pending: pendingCount, confirmed: confirmedCount },
+      selectedTenant: tenantId || '',
+      selectedStatus: status || '',
+    });
+  } catch (error) {
+    logger.error('Error fetching customers:', error);
+    res.status(500).json({ error: 'Failed to fetch customers' });
+  }
+});
+
+router.get('/customers/export', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.query.tenant as string | undefined;
+    const customers = await prisma.customer.findMany({
+      where: tenantId ? { tenant_id: tenantId } : {},
+      include: { tenant: { include: { config: true } } },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const rows = customers.map((c: any) => [
+      `"${(c.name || '').replace(/"/g, '')}"`,
+      `"${c.phone}"`,
+      `"${c.request_type}"`,
+      `"${c.lead_status}"`,
+      `"${(c.tenant.config?.business_name || c.tenant.name).replace(/"/g, '')}"`,
+      `"${c.created_at.toISOString().slice(0, 10)}"`,
+      `"${c.last_interaction.toISOString().slice(0, 10)}"`,
+    ].join(','));
+
+    const csv = ['Name,Phone,Request Type,Lead Status,Business,Date Created,Last Interaction', ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=chatisha-leads.csv');
+    res.send(csv);
+  } catch (error) {
+    logger.error('Error exporting customers:', error);
+    res.status(500).json({ error: 'Failed to export' });
+  }
+});
+
+router.get('/customers/:id', async (req: Request, res: Response) => {
+  try {
+    const customer = await (prisma.customer as any).findUnique({
+      where: { id: req.params.id },
+      include: { tenant: { include: { config: true } } },
+    });
+    if (!customer) return res.status(404).send('Customer not found');
+
+    const messages = await prisma.conversationMessage.findMany({
+      where: { tenant_id: customer.tenant_id, contact: customer.phone },
+      orderBy: { created_at: 'asc' },
+    });
+
+    res.render('customer-detail', { customer, messages });
+  } catch (error) {
+    logger.error('Error fetching customer:', error);
+    res.status(500).json({ error: 'Failed to fetch customer' });
+  }
+});
+
+router.post('/customers/:id/status', async (req: Request, res: Response) => {
+  try {
+    const { lead_status } = req.body;
+    await (prisma.customer as any).update({
+      where: { id: req.params.id },
+      data: { lead_status },
+    });
+    res.redirect('/admin/customers/' + req.params.id);
+  } catch (error) {
+    logger.error('Error updating customer status:', error);
+    res.status(500).json({ error: 'Failed to update status' });
+  }
+});
+
 export default router;

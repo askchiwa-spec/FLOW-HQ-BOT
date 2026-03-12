@@ -6,94 +6,79 @@ import { Button } from '@/components/ui/Button';
 
 const templates = [
   {
-    id: 'booking',
-    title: 'Booking & Appointments',
-    description: 'Perfect for salons, clinics, and service businesses. Automate scheduling, reminders, and confirmations.',
+    id: 'salon',
+    title: 'Salon Booking Assistant',
+    description: 'For salons, spas, and barbershops. Books appointments, shares services and prices, sends reminders.',
     image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80',
     icon: (
       <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
       </svg>
     ),
-    features: ['Auto-scheduling', 'Reminder messages', 'Rescheduling support', 'Multi-service booking'],
+    features: ['Step-by-step booking', 'Service menu', 'Appointment reminders', 'Human handoff'],
     popular: true,
     comingSoon: false,
-    templateType: 'BOOKING',
-  },
-  {
-    id: 'sales',
-    title: 'Sales & Orders',
-    description: 'For retail, e-commerce, and food delivery. Handle orders, track inventory, and process payments.',
-    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80',
-    icon: (
-      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    ),
-    features: ['Product catalog', 'Order tracking', 'Payment integration', 'Delivery updates'],
-    popular: true,
-    comingSoon: false,
-    templateType: 'ECOMMERCE',
-  },
-  {
-    id: 'support',
-    title: 'Customer Support',
-    description: '24/7 automated support for any business. Answer FAQs, escalate issues, and collect feedback.',
-    image: 'https://images.unsplash.com/photo-1553775263-80d0c8f0e7a7?auto=format&fit=crop&w=800&q=80',
-    icon: (
-      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-      </svg>
-    ),
-    features: ['FAQ automation', 'Ticket creation', 'Live agent handoff', 'Feedback collection'],
-    popular: false,
-    comingSoon: false,
-    templateType: 'SUPPORT',
-  },
-  {
-    id: 'real-estate',
-    title: 'Real Estate',
-    description: 'Property listings, virtual tours, and appointment scheduling for real estate agents.',
-    image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80',
-    icon: (
-      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-      </svg>
-    ),
-    features: ['Property listings', 'Virtual tours', 'Viewing schedules', 'Lead qualification'],
-    popular: false,
-    comingSoon: false,
-    templateType: 'REAL_ESTATE',
+    templateType: 'SALON',
   },
   {
     id: 'restaurant',
-    title: 'Restaurant & Cafe',
-    description: 'Table reservations, menu browsing, and delivery orders for food businesses.',
+    title: 'Restaurant Order Assistant',
+    description: 'For restaurants and cafés. Shows menu, takes orders, confirms pickup or delivery.',
     image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
     icon: (
       <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
-    features: ['Table booking', 'Menu showcase', 'Delivery orders', 'Special offers'],
-    popular: false,
+    features: ['Menu browsing', 'Order taking', 'Pickup & delivery', "Today's specials"],
+    popular: true,
     comingSoon: false,
     templateType: 'RESTAURANT',
   },
   {
+    id: 'hotel',
+    title: 'Hotel Booking Assistant',
+    description: 'For hotels and lodges. Handles room inquiries, booking requests, and location details.',
+    image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80',
+    icon: (
+      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
+    features: ['Room availability', 'Booking requests', 'Check-in details', 'Location & directions'],
+    popular: false,
+    comingSoon: false,
+    templateType: 'HOTEL',
+  },
+  {
     id: 'healthcare',
-    title: 'Healthcare & Clinics',
-    description: 'Patient appointments, prescription reminders, and health tips for medical practices.',
+    title: 'Clinic Appointment Assistant',
+    description: 'For clinics and pharmacies. Books patient appointments, shows services, sends reminders.',
     image: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800&q=80',
     icon: (
       <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
       </svg>
     ),
-    features: ['Appointment booking', 'Reminders', 'Health tips', 'Emergency contacts'],
+    features: ['Patient appointments', 'Appointment reminders', 'Clinic hours', 'Emergency handoff'],
     popular: false,
     comingSoon: false,
     templateType: 'HEALTHCARE',
+  },
+  {
+    id: 'ecommerce',
+    title: 'Shop & E-Commerce Assistant',
+    description: 'For phone sellers, clothing shops, and online stores. Shows products, takes orders, confirms delivery.',
+    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=800&q=80',
+    icon: (
+      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+    ),
+    features: ['Product catalog', 'Order taking', 'Pickup & delivery', 'Order confirmation'],
+    popular: false,
+    comingSoon: false,
+    templateType: 'ECOMMERCE',
   },
 ];
 

@@ -22,6 +22,8 @@ enum TemplateType {
   REAL_ESTATE
   RESTAURANT
   HEALTHCARE
+  SALON
+  HOTEL
 }
 
 enum Language {
@@ -60,6 +62,22 @@ enum SetupRequestStatus {
   REJECTED
 }
 
+enum LeadStatus {
+  NEW
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum RequestType {
+  APPOINTMENT
+  ORDER
+  ROOM_INQUIRY
+  SERVICE_INQUIRY
+  GENERAL
+}
+
 model Tenant {
   id            String       @id @default(uuid())
   name          String
@@ -79,6 +97,7 @@ model Tenant {
   setup_requests      SetupRequest[]
   business_documents  BusinessDocument[]
   conversation_messages ConversationMessage[]
+  customers           Customer[]
 
   @@map("tenants")
 }
@@ -257,4 +276,20 @@ model ConversationMessage {
 
   @@index([tenant_id, contact, created_at])
   @@map("conversation_messages")
+}
+
+model Customer {
+  id               String      @id @default(cuid())
+  tenant_id        String
+  tenant           Tenant      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  phone            String
+  name             String?
+  request_type     RequestType @default(GENERAL)
+  lead_status      LeadStatus  @default(NEW)
+  created_at       DateTime    @default(now())
+  last_interaction DateTime    @default(now())
+
+  @@unique([tenant_id, phone])
+  @@index([tenant_id, lead_status])
+  @@map("customers")
 }

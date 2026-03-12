@@ -6,14 +6,26 @@
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts)
 - [portal.ts](file://apps/control-plane/src/routes/portal.ts)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts)
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/logs/route.ts)
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts)
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts)
+- [route.ts](file://apps/web/src/app/api/portal/documents/route.ts)
+- [route.ts](file://apps/web/src/app/api/portal/documents/upload/route.ts)
+- [route.ts](file://apps/web/src/app/api/portal/documents/url/route.ts)
 - [.env.example](file://.env.example)
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma)
 - [index.ts](file://packages/shared/src/types/index.ts)
 - [package.json](file://apps/control-plane/package.json)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added new document management API endpoints for portal document upload and URL processing
+- Consolidated document processing functionality into centralized router
+- Enhanced portal endpoints with tenant isolation and internal key authentication
+- Updated server routing to include document management endpoints
+- Added new BusinessDocument model to Prisma schema
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -28,10 +40,10 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document provides comprehensive API documentation for the Control Plane REST API endpoints used by administrators to manage tenants, workers, QR codes, and message logs. It covers HTTP methods, URL patterns, request/response schemas, authentication mechanisms, error handling, rate limiting considerations, and security measures. It also includes practical examples, client implementation guidelines, and integration patterns with the frontend application.
+This document provides comprehensive API documentation for the Control Plane REST API endpoints used by administrators to manage tenants, workers, QR codes, message logs, and document management. It covers HTTP methods, URL patterns, request/response schemas, authentication mechanisms, error handling, rate limiting considerations, and security measures. It also includes practical examples, client implementation guidelines, and integration patterns with the frontend application.
 
 ## Project Structure
-The Control Plane exposes administrative endpoints under the /admin prefix and portal-facing endpoints under /portal. Authentication middleware secures administrative routes, while portal routes require an internal key. The frontend Next.js app proxies portal routes to the Control Plane.
+The Control Plane exposes administrative endpoints under the /admin prefix, portal-facing endpoints under /portal, and document management endpoints under /portal/documents. Authentication middleware secures administrative routes, while portal routes require an internal key and tenant isolation. The frontend Next.js app proxies portal routes to the Control Plane.
 
 ```mermaid
 graph TB
@@ -40,6 +52,7 @@ CP_Server["Express Server<br/>apps/control-plane/src/server.ts"]
 CP_AdminMW["Admin Auth Middleware<br/>apps/control-plane/src/middleware/auth.ts"]
 CP_AdminRoutes["Admin Routes (/admin)<br/>apps/control-plane/src/routes/admin.ts"]
 CP_PortalRoutes["Portal Routes (/portal)<br/>apps/control-plane/src/routes/portal.ts"]
+CP_DocRoutes["Document Routes (/portal/documents)<br/>apps/control-plane/src/routes/documents.ts"]
 end
 subgraph "Frontend Web App"
 FE_NextAPI["Next.js API Routes<br/>apps/web/src/app/api/portal/*"]
@@ -48,33 +61,37 @@ FE_NextAPI --> |HTTP Request| CP_Server
 CP_Server --> CP_AdminMW
 CP_AdminMW --> CP_AdminRoutes
 CP_Server --> CP_PortalRoutes
+CP_Server --> CP_DocRoutes
 ```
 
 **Diagram sources**
-- [server.ts](file://apps/control-plane/src/server.ts#L47-L48)
+- [server.ts](file://apps/control-plane/src/server.ts#L48-L50)
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L5-L29)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L82-L102)
 - [portal.ts](file://apps/control-plane/src/routes/portal.ts#L12-L25)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L1-L213)
 
 **Section sources**
-- [server.ts](file://apps/control-plane/src/server.ts#L47-L48)
+- [server.ts](file://apps/control-plane/src/server.ts#L48-L50)
 - [package.json](file://apps/control-plane/package.json#L9-L16)
 
 ## Core Components
 - Admin authentication middleware supporting Basic Auth and query/body password parameters.
 - Administrative endpoints for tenant lifecycle, worker lifecycle, QR retrieval, and message log retrieval.
 - Portal authentication requiring an internal key and user identity header.
+- Document management endpoints for uploading files and URLs with tenant isolation.
 - Shared Prisma schema and TypeScript types define data models and enums used across the system.
 
 **Section sources**
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L5-L29)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L82-L102)
 - [portal.ts](file://apps/control-plane/src/routes/portal.ts#L12-L25)
-- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L10-L58)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L56-L63)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L234-L247)
 - [index.ts](file://packages/shared/src/types/index.ts#L1-L41)
 
 ## Architecture Overview
-Administrative clients call /admin endpoints secured by admin authentication. The portal layer (frontend Next.js) calls /portal endpoints, which are secured by an internal key and user identity header. The Control Plane validates environment variables, connects to the database, and runs periodic maintenance tasks.
+Administrative clients call /admin endpoints secured by admin authentication. The portal layer (frontend Next.js) calls /portal endpoints, which are secured by an internal key and user identity header. Document management endpoints are isolated under /portal/documents with tenant-specific access control. The Control Plane validates environment variables, connects to the database, and runs periodic maintenance tasks.
 
 ```mermaid
 sequenceDiagram
@@ -90,7 +107,7 @@ AR-->>Admin : "Response (JSON)"
 ```
 
 **Diagram sources**
-- [server.ts](file://apps/control-plane/src/server.ts#L47-L48)
+- [server.ts](file://apps/control-plane/src/server.ts#L48-L50)
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L5-L29)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L82-L102)
 
@@ -104,6 +121,9 @@ AR-->>Admin : "Response (JSON)"
 - Portal endpoints under /portal require:
   - Header x-portal-key matching the configured internal key.
   - Header x-user-email identifying the user whose data is requested.
+- Document management endpoints under /portal/documents require:
+  - Header x-portal-key matching the configured internal key.
+  - Header x-tenant-id identifying the tenant whose documents are being managed.
 
 ```mermaid
 flowchart TD
@@ -113,15 +133,22 @@ CheckSession --> |Not Authenticated| CheckQuery["Check query.password or body.pa
 CheckQuery --> |Match| Allow
 CheckQuery --> |No Match| CheckBasic["Parse Authorization: Basic ..."]
 CheckBasic --> |Match| Allow
-CheckBasic --> |No Match| Deny["401 Unauthorized"]
+CheckBasic --> |No Match| CheckPortalKey["Validate x-portal-key"]
+CheckPortalKey --> |Valid| CheckTenant["Validate x-tenant-id (for documents)"]
+CheckTenant --> |Valid| Allow
+CheckTenant --> |Invalid| Deny["401 Unauthorized"]
+CheckPortalKey --> |Invalid| Deny
 ```
 
 **Diagram sources**
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L5-L29)
+- [portal.ts](file://apps/control-plane/src/routes/portal.ts#L11-L25)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L56-L63)
 
 **Section sources**
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L5-L29)
-- [portal.ts](file://apps/control-plane/src/routes/portal.ts#L12-L25)
+- [portal.ts](file://apps/control-plane/src/routes/portal.ts#L11-L25)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L56-L63)
 
 ### Tenant Management
 - POST /admin/tenants
@@ -265,15 +292,68 @@ AR-->>Admin : "200 JSON logs"
 **Section sources**
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L354-L369)
 
+### Document Management
+- POST /portal/documents/upload
+  - Purpose: Upload a PDF/DOCX/TXT file and extract its text content.
+  - Headers: x-portal-key (internal key), x-tenant-id (tenant identifier).
+  - Request: multipart/form-data with file field.
+  - Response: Document metadata (id, filename, file_type).
+  - Status codes: 201 on success, 400 on validation errors, 500 on failure.
+- POST /portal/documents/url
+  - Purpose: Save a website URL as a knowledge source.
+  - Headers: x-portal-key (internal key), x-tenant-id (tenant identifier).
+  - Request: JSON with url field.
+  - Response: Document metadata (id, url, file_type).
+  - Status codes: 201 on success, 400 on validation errors, 500 on failure.
+- GET /portal/documents
+  - Purpose: List all documents for a tenant.
+  - Headers: x-portal-key (internal key), x-tenant-id (tenant identifier).
+  - Response: Array of document metadata.
+  - Status codes: 200 on success, 404 on tenant not found, 500 on failure.
+- DELETE /portal/documents/:id
+  - Purpose: Delete a document and remove it from disk.
+  - Headers: x-portal-key (internal key), x-tenant-id (tenant identifier).
+  - Response: Success indicator.
+  - Status codes: 200 on success, 404 on document not found, 500 on failure.
+
+```mermaid
+sequenceDiagram
+participant FE as "Frontend Client"
+participant CP as "Control Plane Documents"
+participant DR as "Documents Router"
+participant FS as "File System"
+participant DB as "Prisma Client"
+FE->>CP : "POST /portal/documents/upload"
+CP->>DR : "upload.single('file')"
+DR->>FS : "Save file to uploads/ : tenantId/"
+DR->>DR : "Extract text content"
+DR->>DB : "Create businessDocument record"
+DB-->>DR : "Document created"
+DR-->>FE : "201 JSON document metadata"
+```
+
+**Diagram sources**
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L69-L102)
+
+**Section sources**
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L65-L102)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L104-L139)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L141-L161)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L163-L188)
+
 ### Portal Integration (Frontend)
 - The frontend Next.js app proxies portal endpoints to the Control Plane using server-side fetch.
 - Required headers:
   - x-portal-key: matches PORTAL_INTERNAL_KEY.
   - x-user-email: identifies the user.
+  - x-tenant-id: identifies the tenant (for document management).
 - Example routes:
   - GET /portal/tenant/current/status
   - GET /portal/tenant/current/qr
   - GET /portal/tenant/current/logs
+  - GET /portal/documents
+  - POST /portal/documents/upload
+  - POST /portal/documents/url
 
 ```mermaid
 sequenceDiagram
@@ -289,20 +369,24 @@ PR-->>FE : "200 JSON logs"
 ```
 
 **Diagram sources**
-- [portal.ts](file://apps/control-plane/src/routes/portal.ts#L12-L25)
+- [portal.ts](file://apps/control-plane/src/routes/portal.ts#L11-L25)
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/logs/route.ts#L8-L34)
 
 **Section sources**
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/logs/route.ts#L8-L34)
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L8-L34)
 - [route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L8-L34)
-- [portal.ts](file://apps/control-plane/src/routes/portal.ts#L12-L25)
+- [route.ts](file://apps/web/src/app/api/portal/documents/route.ts#L17-L35)
+- [route.ts](file://apps/web/src/app/api/portal/documents/upload/route.ts#L9-L40)
+- [route.ts](file://apps/web/src/app/api/portal/documents/url/route.ts#L9-L36)
+- [portal.ts](file://apps/control-plane/src/routes/portal.ts#L11-L25)
 
 ## Dependency Analysis
 - Control Plane server initializes environment validation, database connection, and background tasks.
 - Admin routes depend on Prisma models for tenant, config, session, worker process, and message logs.
 - Portal routes depend on Prisma models for user, tenant, setup requests, and event logs.
-- Frontend Next.js routes depend on Control Plane’s /portal endpoints and environment variables.
+- Document routes depend on Prisma models for business documents and tenant configuration.
+- Frontend Next.js routes depend on Control Plane's /portal endpoints and environment variables.
 
 ```mermaid
 graph TB
@@ -310,45 +394,58 @@ CP_Server["server.ts"]
 CP_AdminMW["auth.ts"]
 CP_AdminRoutes["admin.ts"]
 CP_PortalRoutes["portal.ts"]
+CP_DocRoutes["documents.ts"]
 Shared_Schema["schema.prisma"]
 Shared_Types["index.ts"]
 CP_Server --> CP_AdminMW
 CP_AdminMW --> CP_AdminRoutes
 CP_Server --> CP_PortalRoutes
+CP_Server --> CP_DocRoutes
 CP_AdminRoutes --> Shared_Schema
 CP_PortalRoutes --> Shared_Schema
+CP_DocRoutes --> Shared_Schema
 CP_AdminRoutes --> Shared_Types
 CP_PortalRoutes --> Shared_Types
+CP_DocRoutes --> Shared_Types
 ```
 
 **Diagram sources**
 - [server.ts](file://apps/control-plane/src/server.ts#L17-L39)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L12)
 - [portal.ts](file://apps/control-plane/src/routes/portal.ts#L1-L6)
-- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L177)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L1-L8)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L247)
 - [index.ts](file://packages/shared/src/types/index.ts#L1-L41)
 
 **Section sources**
 - [server.ts](file://apps/control-plane/src/server.ts#L17-L39)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L12)
 - [portal.ts](file://apps/control-plane/src/routes/portal.ts#L1-L6)
-- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L177)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L1-L8)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L247)
 - [index.ts](file://packages/shared/src/types/index.ts#L1-L41)
 
 ## Performance Considerations
 - Stale worker detection runs periodically to mark long-inactive workers as ERROR, preventing resource drift.
 - Default stale threshold and check interval are configurable via environment variables.
 - Message log queries use ordering and limits to constrain result sizes.
+- Document upload processing includes file size limits (20MB) and supported formats (PDF, DOCX, DOC, TXT).
+- Text extraction is performed asynchronously and falls back gracefully if extraction fails.
+- Business context aggregation rebuilds efficiently by filtering documents with content.
 
 Recommendations:
 - Tune STALE_THRESHOLD_MINUTES and STALE_CHECK_INTERVAL_MS for your workload.
 - Limit log retrieval with appropriate limit values to avoid large payloads.
 - Ensure PM2 is available and properly configured for worker lifecycle operations.
+- Monitor uploads directory space for document storage.
+- Consider implementing document cleanup policies for old or unused files.
 
 **Section sources**
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L30-L80)
 - [server.ts](file://apps/control-plane/src/server.ts#L54-L63)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L354-L369)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L27-L36)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L194-L210)
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -358,25 +455,32 @@ Common issues and resolutions:
 - 401 Unauthorized on /portal endpoints:
   - Confirm PORTAL_INTERNAL_KEY is set and matches x-portal-key header.
   - Ensure x-user-email header is present and valid.
+- 401 Unauthorized on /portal/documents endpoints:
+  - Confirm PORTAL_INTERNAL_KEY is set and matches x-portal-key header.
+  - Ensure x-tenant-id header is present and valid.
 - 404 Not Found:
-  - Tenant, worker, or session may not exist; verify IDs and associations.
+  - Tenant, worker, session, or document may not exist; verify IDs and associations.
 - 500 Internal Server Error:
   - Check server logs for database connectivity and PM2 startup failures.
   - Validate environment variables and paths.
+  - For document uploads, check file permissions and disk space.
 
 Security notes:
 - Use HTTPS in production to protect credentials and keys.
 - Rotate ADMIN_PASSWORD and PORTAL_INTERNAL_KEY regularly.
 - Restrict access to PM2 and worker scripts to trusted administrators.
+- Document management endpoints enforce tenant isolation through x-tenant-id header.
+- Uploaded files are stored in tenant-specific directories for isolation.
 
 **Section sources**
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L5-L29)
-- [portal.ts](file://apps/control-plane/src/routes/portal.ts#L12-L25)
+- [portal.ts](file://apps/control-plane/src/routes/portal.ts#L11-L25)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L56-L63)
 - [server.ts](file://apps/control-plane/src/server.ts#L17-L39)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L174-L230)
 
 ## Conclusion
-The Control Plane API provides a focused administrative surface for tenant and worker lifecycle management, QR retrieval, and message log inspection. Administrators authenticate via Basic Auth or password parameters, while the portal layer integrates with the frontend using an internal key and user identity header. Proper environment configuration, periodic maintenance, and secure credential handling are essential for reliable operation.
+The Control Plane API provides a comprehensive administrative and portal interface for tenant and worker lifecycle management, QR retrieval, message log inspection, and document management. Administrators authenticate via Basic Auth or password parameters, while the portal layer integrates with the frontend using an internal key and user identity header. Document management adds powerful knowledge base capabilities with tenant isolation and automated content processing. Proper environment configuration, periodic maintenance, and secure credential handling are essential for reliable operation.
 
 ## Appendices
 
@@ -385,6 +489,7 @@ The Control Plane API provides a focused administrative surface for tenant and w
 - Authentication
   - Admin: Basic Auth or password via query/body; session fallback.
   - Portal: x-portal-key and x-user-email headers.
+  - Documents: x-portal-key and x-tenant-id headers.
 
 - Endpoints
   - POST /admin/tenants
@@ -407,12 +512,29 @@ The Control Plane API provides a focused administrative surface for tenant and w
   - GET /admin/tenants/:id/logs?limit=N
     - Response: 200 array of logs
 
+- Document Management Endpoints
+  - POST /portal/documents/upload
+    - Headers: x-portal-key, x-tenant-id
+    - Body: multipart/form-data with file field
+    - Response: 201 document metadata
+  - POST /portal/documents/url
+    - Headers: x-portal-key, x-tenant-id
+    - Body: JSON { url }
+    - Response: 201 document metadata
+  - GET /portal/documents
+    - Headers: x-portal-key, x-tenant-id
+    - Response: 200 array of document metadata
+  - DELETE /portal/documents/:id
+    - Headers: x-portal-key, x-tenant-id
+    - Response: 200 success indicator
+
 - Environment Variables
   - DATABASE_URL, ADMIN_PASSWORD, PORTAL_INTERNAL_KEY, PORT, LOG_LEVEL, SESSIONS_PATH, LOGS_PATH, STALE_THRESHOLD_MINUTES, STALE_CHECK_INTERVAL_MS
 
 **Section sources**
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L82-L369)
-- [portal.ts](file://apps/control-plane/src/routes/portal.ts#L12-L25)
+- [portal.ts](file://apps/control-plane/src/routes/portal.ts#L11-L251)
+- [documents.ts](file://apps/control-plane/src/routes/documents.ts#L65-L188)
 - [.env.example](file://.env.example#L1-L22)
 
 ### Data Models Overview
@@ -433,6 +555,9 @@ enum template_type
 string business_name
 enum language
 json hours_json
+string business_context
+boolean ai_enabled
+string website_url
 datetime created_at
 datetime updated_at
 }
@@ -485,14 +610,34 @@ string notes
 datetime created_at
 datetime updated_at
 }
+BUSINESS_DOCUMENT {
+string id PK
+string tenant_id
+string filename
+string file_type
+string file_path
+string url
+string content_text
+datetime created_at
+}
+CONVERSATION_MESSAGE {
+string id PK
+string tenant_id
+string contact
+string role
+string content
+datetime created_at
+}
 TENANT ||--o{ TENANT_CONFIG : "has"
 TENANT ||--|| WHATSAPP_SESSION : "has"
 TENANT ||--o{ MESSAGE_LOG : "generates"
 TENANT ||--|| WORKER_PROCESS : "has"
 TENANT ||--o{ SETUP_REQUEST : "creates"
+TENANT ||--o{ BUSINESS_DOCUMENT : "owns"
 USER ||--o{ SETUP_REQUEST : "submits"
 USER ||--o{ MESSAGE_LOG : "may be related"
+TENANT ||--o{ CONVERSATION_MESSAGE : "generates"
 ```
 
 **Diagram sources**
-- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L177)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L261)

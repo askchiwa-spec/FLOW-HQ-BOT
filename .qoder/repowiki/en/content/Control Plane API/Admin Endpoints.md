@@ -5,9 +5,18 @@
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts)
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts)
 - [server.ts](file://apps/control-plane/src/server.ts)
+- [setup-requests.ejs](file://apps/control-plane/src/views/setup-requests.ejs)
+- [tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs)
 - [logs/route.ts](file://apps/web/src/app/api/portal/tenant/current/logs/route.ts)
 - [qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added DELETE /admin/tenants/:id endpoint for complete tenant removal
+- Enhanced setup requests page with tenant deletion capability via AJAX
+- Improved tenant detail alerts with better handling of BAN_SIGNAL, DISCONNECTED, and QR_EXPIRED states
+- Updated tenant detail page with enhanced error state detection and user warnings
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -144,16 +153,19 @@ CheckBasic --> |Mismatch| Deny["401 Unauthorized"]
   - Response: Updated tenant object (JSON)
   - Status codes: 200 on success, 404 if not found, 500 on failure
 - DELETE /admin/tenants/:id
-  - Purpose: Delete a tenant (schema not shown here; refer to route)
-  - Response: Deletion result (JSON)
+  - Purpose: Delete a tenant and all related data (config, session, worker, logs, messages).
+  - Response: { success: true } on successful deletion
   - Status codes: 200 on success, 404 if not found, 500 on failure
+  - **Updated**: Now performs complete cascade deletion of all tenant-related records
 
 Notes:
 - Accept header handling: If application/json is present, JSON is returned; otherwise, HTML views are rendered.
 - Logs included with GET /admin/tenants/:id are limited to recent entries.
+- **Updated**: DELETE endpoint now stops running workers before deletion and logs the action for audit trails.
 
 **Section sources**
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L82-L172)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L238-L260)
 
 ### Worker Management Endpoints
 - POST /admin/tenants/:id/worker/start
@@ -184,12 +196,12 @@ Operational details:
 
 ### QR Code Retrieval
 - GET /admin/tenants/:id/qr
-  - Purpose: Retrieve the latest QR state and image for a tenant’s session.
+  - Purpose: Retrieve the latest QR state and image for a tenant's session.
   - Response: { state: string, qr: string }
   - Status codes: 200 on success, 404 if session not found, 500 on failure
 
 **Section sources**
-- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L334-L352)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L289-L307)
 
 ### Message Logging
 - GET /admin/tenants/:id/logs
@@ -199,11 +211,12 @@ Operational details:
   - Status codes: 200 on success, 500 on failure
 
 **Section sources**
-- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L354-L369)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L309-L324)
 
 ### Setup Request Management
 - GET /admin/setup-requests
   - Response: Array of setup requests with tenant and user relations
+  - **Updated**: Now includes deduplication logic to show only the most recent request per tenant
 - GET /admin/setup-requests/:id
   - Response: Single setup request with relations
 - POST /admin/setup-requests/:id/approve
@@ -214,7 +227,31 @@ Operational details:
   - Response: Redirect to detail view
 
 **Section sources**
-- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L373-L525)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L328-L351)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L353-L376)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L378-L421)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L423-L457)
+
+### Enhanced Tenant Detail Alerts
+The tenant detail page now provides improved error state detection and user warnings:
+
+- **BAN_SIGNAL Detection**: Alerts when worker errors start with "BAN_SIGNAL" indicating potential account suspension
+- **DISCONNECTED/QR_EXPIRED Handling**: Provides specific guidance for session dropouts and QR expiration scenarios
+- **Visual Warning System**: Color-coded alerts with appropriate icons and actionable recommendations
+
+**Section sources**
+- [tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs#L141-L163)
+
+### Setup Requests Page Enhancements
+The setup requests page now includes direct tenant deletion capabilities:
+
+- **Deduplicated View**: Shows only the most recent setup request per tenant
+- **Direct Deletion**: Buttons to immediately delete tenants from the setup requests list
+- **AJAX Integration**: Uses fetch API for seamless tenant deletion without page refresh
+
+**Section sources**
+- [setup-requests.ejs](file://apps/control-plane/src/views/setup-requests.ejs#L330-L340)
+- [setup-requests.ejs](file://apps/control-plane/src/views/setup-requests.ejs#L166-L181)
 
 ## Dependency Analysis
 - Server mounts admin routes and applies auth middleware globally to /admin.
@@ -242,8 +279,7 @@ Admin --> PM2["PM2 Commands"]
 - Rate limiting: Not implemented in the Admin API. Consider adding rate limiting at the gateway or middleware level to protect sensitive endpoints.
 - Query limits: Logs endpoint accepts a limit parameter; default is 200. Use smaller limits for frequent polling.
 - PM2 orchestration: Worker start/stop/restart operations spawn external processes; avoid excessive concurrent operations.
-
-[No sources needed since this section provides general guidance]
+- **Updated**: DELETE endpoint now includes worker cleanup to prevent orphaned processes during tenant removal.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -252,6 +288,7 @@ Common issues and resolutions:
 - 400 Bad Request: Starting a worker that is already running; use restart instead.
 - 500 Internal Server Error: Inspect server logs for database or PM2 command failures.
 - Stale workers: Background task updates worker and tenant status; check logs and restart worker if needed.
+- **Updated**: Tenant deletion failures: Check that the tenant has no active worker processes and verify database cascade constraints.
 
 **Section sources**
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L28-L29)
@@ -259,4 +296,4 @@ Common issues and resolutions:
 - [server.ts](file://apps/control-plane/src/server.ts#L54-L63)
 
 ## Conclusion
-The Admin REST API provides comprehensive controls for tenant lifecycle, worker orchestration, QR retrieval, and message logging. Authentication is enforced via Basic Auth or a password parameter. For production deployments, consider implementing rate limiting, robust monitoring, and secure credential management. Integrate with the administrative dashboard by invoking these endpoints with proper authentication and handling standardized error responses.
+The Admin REST API provides comprehensive controls for tenant lifecycle, worker orchestration, QR retrieval, and message logging. Authentication is enforced via Basic Auth or a password parameter. Recent enhancements include complete tenant removal capabilities, improved setup request management with deduplication, and enhanced error state detection in tenant details. For production deployments, consider implementing rate limiting, robust monitoring, and secure credential management. Integrate with the administrative dashboard by invoking these endpoints with proper authentication and handling standardized error responses.

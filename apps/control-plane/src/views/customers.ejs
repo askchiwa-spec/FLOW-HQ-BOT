@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chatisha Admin — Customers</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #080d18; --bg-card: #0d1625; --bg-card2: #111c2e;
+      --border: rgba(255,255,255,0.07); --primary: #10b981;
+      --primary-dim: rgba(16,185,129,0.12); --primary-border: rgba(16,185,129,0.25);
+      --secondary: #8b5cf6; --danger: #ef4444; --danger-dim: rgba(239,68,68,0.12);
+      --warning: #f59e0b; --warning-dim: rgba(245,158,11,0.12);
+      --text: #e2e8f0; --text-muted: #64748b; --text-dim: #94a3b8;
+      --radius: 12px; --radius-sm: 8px;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+    .sidebar { width: 240px; min-height: 100vh; background: var(--bg-card); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10; }
+    .logo { display: flex; align-items: center; gap: 12px; padding: 24px 20px; border-bottom: 1px solid var(--border); }
+    .logo-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; color: white; flex-shrink: 0; box-shadow: 0 0 20px rgba(16,185,129,0.3); }
+    .logo-text { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; color: white; }
+    .logo-sub { font-size: 10px; color: var(--text-muted); font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; }
+    .nav { padding: 16px 12px; flex: 1; }
+    .nav-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 8px; margin-bottom: 8px; margin-top: 16px; }
+    .nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-dim); text-decoration: none; font-size: 14px; font-weight: 500; transition: all 0.15s; margin-bottom: 2px; border: 1px solid transparent; }
+    .nav-link:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+    .nav-link.active { background: var(--primary-dim); color: var(--primary); border-color: var(--primary-border); }
+    .nav-link svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); }
+    .sidebar-footer p { font-size: 11px; color: var(--text-muted); }
+    .main { margin-left: 240px; flex: 1; padding: 32px; min-height: 100vh; }
+    .page-header { margin-bottom: 28px; display: flex; align-items: flex-start; justify-content: space-between; }
+    .page-header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; color: white; }
+    .page-header p { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+    .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+    .stat-label { font-size: 12px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 28px; font-weight: 700; color: white; margin-top: 8px; }
+    .stat-value.green { color: var(--primary); }
+    .stat-value.yellow { color: var(--warning); }
+    .stat-value.purple { color: var(--secondary); }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 24px; overflow: hidden; }
+    .card-header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .card-header h2 { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 600; color: white; }
+    .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .filters select { padding: 8px 12px; background: var(--bg-card2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 13px; font-family: inherit; cursor: pointer; }
+    .filters select:focus { outline: none; border-color: var(--primary); }
+    .filters select option { background: var(--bg-card2); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); background: var(--bg-card2); }
+    tbody td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: rgba(255,255,255,0.02); }
+    .customer-name a { color: white; text-decoration: none; font-weight: 500; }
+    .customer-name a:hover { color: var(--primary); }
+    .phone { font-family: monospace; font-size: 13px; color: var(--text-dim); }
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; }
+    .badge-new { background: var(--primary-dim); color: var(--primary); }
+    .badge-pending { background: var(--warning-dim); color: var(--warning); }
+    .badge-confirmed { background: rgba(139,92,246,0.12); color: var(--secondary); }
+    .badge-completed { background: rgba(16,185,129,0.2); color: #34d399; }
+    .badge-cancelled { background: var(--danger-dim); color: var(--danger); }
+    .badge-appointment { background: var(--primary-dim); color: var(--primary); }
+    .badge-order { background: var(--warning-dim); color: var(--warning); }
+    .badge-room_inquiry { background: rgba(139,92,246,0.12); color: var(--secondary); }
+    .badge-service_inquiry { background: rgba(59,130,246,0.12); color: #60a5fa; }
+    .badge-general { background: rgba(255,255,255,0.06); color: var(--text-dim); }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer; transition: all 0.15s; text-decoration: none; border: 1px solid transparent; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: #059669; }
+    .btn-outline { background: transparent; border-color: var(--border); color: var(--text-dim); }
+    .btn-outline:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+    .empty { padding: 60px 24px; text-align: center; color: var(--text-muted); }
+    .empty p { margin-top: 8px; font-size: 14px; }
+    .last-msg { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim); font-size: 13px; }
+    .time { font-size: 12px; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">C</div>
+      <div>
+        <div class="logo-text">Chatisha</div>
+        <div class="logo-sub">Admin Panel</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-label">Management</div>
+      <a href="/admin/tenants" class="nav-link">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/></svg>
+        Tenants
+      </a>
+      <a href="/admin/setup-requests" class="nav-link">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        Setup Requests
+      </a>
+      <a href="/admin/customers" class="nav-link active">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        Customers
+      </a>
+    </nav>
+    <div class="sidebar-footer"><p>Chatisha Control Plane</p></div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <h1>Customers</h1>
+        <p>All WhatsApp leads captured across your tenants</p>
+      </div>
+      <a href="/admin/customers/export<%= selectedTenant ? '?tenant=' + selectedTenant : '' %>" class="btn btn-outline">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Export CSV
+      </a>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">Total Leads</div>
+        <div class="stat-value"><%= stats.total %></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">New</div>
+        <div class="stat-value green"><%= stats.new %></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pending</div>
+        <div class="stat-value yellow"><%= stats.pending %></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Confirmed</div>
+        <div class="stat-value purple"><%= stats.confirmed %></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Lead List</h2>
+        <form method="GET" action="/admin/customers" class="filters">
+          <select name="tenant" onchange="this.form.submit()">
+            <option value="">All Businesses</option>
+            <% tenants.forEach(t => { %>
+              <option value="<%= t.id %>" <%= selectedTenant === t.id ? 'selected' : '' %>>
+                <%= t.config ? t.config.business_name : t.name %>
+              </option>
+            <% }) %>
+          </select>
+          <select name="status" onchange="this.form.submit()">
+            <option value="">All Statuses</option>
+            <option value="NEW" <%= selectedStatus === 'NEW' ? 'selected' : '' %>>New</option>
+            <option value="PENDING" <%= selectedStatus === 'PENDING' ? 'selected' : '' %>>Pending</option>
+            <option value="CONFIRMED" <%= selectedStatus === 'CONFIRMED' ? 'selected' : '' %>>Confirmed</option>
+            <option value="COMPLETED" <%= selectedStatus === 'COMPLETED' ? 'selected' : '' %>>Completed</option>
+            <option value="CANCELLED" <%= selectedStatus === 'CANCELLED' ? 'selected' : '' %>>Cancelled</option>
+          </select>
+        </form>
+      </div>
+
+      <% if (customers.length === 0) { %>
+        <div class="empty">
+          <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin: 0 auto; color: #334155;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <p>No customers yet. They will appear automatically once bots start receiving messages.</p>
+        </div>
+      <% } else { %>
+        <table>
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th>Phone</th>
+              <th>Request</th>
+              <th>Business</th>
+              <th>Status</th>
+              <th>Last Active</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% customers.forEach(c => { %>
+              <tr>
+                <td class="customer-name">
+                  <a href="/admin/customers/<%= c.id %>">
+                    <%= c.name || 'Unknown' %>
+                  </a>
+                </td>
+                <td class="phone"><%= c.phone.replace('@c.us', '') %></td>
+                <td>
+                  <span class="badge badge-<%= c.request_type.toLowerCase() %>">
+                    <%= c.request_type.replace('_', ' ') %>
+                  </span>
+                </td>
+                <td style="color: var(--text-dim); font-size: 13px;">
+                  <%= c.tenant.config ? c.tenant.config.business_name : c.tenant.name %>
+                </td>
+                <td>
+                  <span class="badge badge-<%= c.lead_status.toLowerCase() %>"><%= c.lead_status %></span>
+                </td>
+                <td class="time">
+                  <%= new Date(c.last_interaction).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+  </main>
+</body>
+</html>

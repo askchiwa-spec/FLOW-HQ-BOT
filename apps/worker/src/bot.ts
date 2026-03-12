@@ -457,8 +457,11 @@ export class WhatsAppBot {
       const typingDelayMs = Math.min(Math.max(replyText.length * 30, 800), 2500);
       await new Promise((r) => setTimeout(r, typingDelayMs));
 
+      // Append Chatisha signature for organic growth
+      const signedReply = replyText + '\n\n_Powered by Chatisha_';
+
       // Send reply
-      const reply = await msg.reply(replyText);
+      const reply = await msg.reply(signedReply);
 
       // If handoff needed, notify the business owner (log prominently)
       if (handoff) {
@@ -466,7 +469,7 @@ export class WhatsAppBot {
       }
 
       this.logger.info(`Sent reply to ${msg.from}: ${replyText.substring(0, 80)}`);
-      
+
       // Log outgoing message
       await this.prisma.messageLog.create({
         data: {
@@ -474,10 +477,13 @@ export class WhatsAppBot {
           direction: 'OUT',
           from_number: msg.to || 'me',
           to_number: msg.from,
-          message_text: replyText,
+          message_text: signedReply,
           wa_message_id: reply.id.id
         }
       });
+
+      // Mini CRM: upsert customer record
+      await this.upsertCustomer(msg.from, body, replyText);
 
       // Update last seen
       await this.prisma.whatsAppSession.update({
@@ -538,6 +544,63 @@ export class WhatsAppBot {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = null;
       this.logger.info('Heartbeat stopped');
+    }
+  }
+
+  private async upsertCustomer(phone: string, userMessage: string, botReply: string): Promise<void> {
+    if (!this.config) return;
+    try {
+      const requestTypeMap: Record<string, string> = {
+        SALON: 'APPOINTMENT', BOOKING: 'APPOINTMENT', HEALTHCARE: 'APPOINTMENT',
+        RESTAURANT: 'ORDER', ECOMMERCE: 'ORDER',
+        HOTEL: 'ROOM_INQUIRY', REAL_ESTATE: 'SERVICE_INQUIRY', SUPPORT: 'GENERAL',
+      };
+      const requestType = requestTypeMap[this.config.templateType] ?? 'GENERAL';
+
+      // Detect if last bot message asked for the customer's name
+      const lastBotMsg = await this.prisma.conversationMessage.findFirst({
+        where: { tenant_id: this.tenantId, contact: phone, role: 'assistant' },
+        orderBy: { created_at: 'desc' },
+      });
+      const askedForName = lastBotMsg && (
+        lastBotMsg.content.toLowerCase().includes('share your name') ||
+        lastBotMsg.content.toLowerCase().includes('your full name') ||
+        lastBotMsg.content.toLowerCase().includes('jina lako') ||
+        lastBotMsg.content.toLowerCase().includes('tupe jina')
+      );
+      const isLikelyName = userMessage.length > 1 && userMessage.length < 60 &&
+        !/^\d+$/.test(userMessage) && !userMessage.includes('@') && !userMessage.includes('http');
+      const nameToSave = (askedForName && isLikelyName) ? userMessage.trim() : undefined;
+
+      // Detect lead status from bot reply
+      const replyLower = botReply.toLowerCase();
+      let leadStatus: string | undefined;
+      if (replyLower.includes('appointment is confirmed') || replyLower.includes('booking is confirmed') ||
+          replyLower.includes('imewekwa') || replyLower.includes('imethibitishwa')) {
+        leadStatus = 'CONFIRMED';
+      } else if (replyLower.includes('order has been received') || replyLower.includes('request has been received') ||
+                 replyLower.includes('imepokelewa')) {
+        leadStatus = 'PENDING';
+      }
+
+      await (this.prisma as any).customer.upsert({
+        where: { tenant_id_phone: { tenant_id: this.tenantId, phone } },
+        create: {
+          tenant_id: this.tenantId,
+          phone,
+          name: nameToSave,
+          request_type: requestType,
+          lead_status: leadStatus ?? 'NEW',
+          last_interaction: new Date(),
+        },
+        update: {
+          last_interaction: new Date(),
+          ...(nameToSave ? { name: nameToSave } : {}),
+          ...(leadStatus ? { lead_status: leadStatus } : {}),
+        },
+      });
+    } catch (err) {
+      this.logger.error('Failed to upsert customer:', err);
     }
   }
 

@@ -2,9 +2,10 @@ import { getBookingResponse } from './booking';
 import { getRealEstateResponse } from './real-estate';
 import { getRestaurantResponse } from './restaurant';
 import { getHealthcareResponse } from './healthcare';
+import { getHotelResponse } from './hotel';
 
 export interface TemplateConfig {
-  template_type: 'BOOKING' | 'ECOMMERCE' | 'SUPPORT' | 'REAL_ESTATE' | 'RESTAURANT' | 'HEALTHCARE';
+  template_type: 'BOOKING' | 'ECOMMERCE' | 'SUPPORT' | 'REAL_ESTATE' | 'RESTAURANT' | 'HEALTHCARE' | 'SALON' | 'HOTEL';
   business_name: string;
   language: 'SW' | 'EN';
 }
@@ -14,6 +15,7 @@ export function getResponse(
   config: TemplateConfig
 ): string {
   switch (config.template_type) {
+    case 'SALON':
     case 'BOOKING':
       return getBookingResponse(message, config.business_name, config.language);
     case 'ECOMMERCE':
@@ -26,6 +28,8 @@ export function getResponse(
       return getRestaurantResponse(message, config.business_name, config.language);
     case 'HEALTHCARE':
       return getHealthcareResponse(message, config.business_name, config.language);
+    case 'HOTEL':
+      return getHotelResponse(message, config.business_name, config.language);
     default:
       return getBookingResponse(message, config.business_name, config.language);
   }

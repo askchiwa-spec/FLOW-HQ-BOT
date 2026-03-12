@@ -17,16 +17,18 @@
 - [packages/shared/src/utils/logger.ts](file://packages/shared/src/utils/logger.ts)
 - [apps/control-plane/src/server.ts](file://apps/control-plane/src/server.ts)
 - [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts)
+- [apps/control-plane/src/routes/admin.ts](file://apps/control-plane/src/routes/admin.ts)
+- [apps/control-plane/src/views/tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced WhatsApp connection flow documentation with step-by-step process
-- Improved QR code handling documentation with new state management
-- Added comprehensive coverage of new connection states (QR_READY, CONNECTED, CONNECTING)
-- Updated session state transitions with detailed flow diagrams
-- Enhanced frontend integration documentation with countdown and state indicators
-- Expanded troubleshooting guide with new state-specific scenarios
+- Enhanced QR code expiration detection with 65-second timeout and automatic QR regeneration
+- Improved error reporting with alert codes (BAN_SIGNAL, DISCONNECTED, QR_EXPIRED)
+- Added group message filtering to respond only to 1-on-1 chats
+- Enhanced reconnect logic with comprehensive error state management
+- Updated session state transitions with QR_EXPIRED state
+- Expanded troubleshooting guide with QR expiration scenarios
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -43,9 +45,9 @@
 12. [Appendices](#appendices)
 
 ## Introduction
-This document explains the WhatsApp Web API integration and automation built with the whatsapp-web.js library. It covers QR code authentication flow, session management and persistence, worker lifecycle, session states (DISCONNECTED, QR_READY, CONNECTED, CONNECTING), automatic reconnection, message processing workflows, template-based response generation, and error handling strategies. It also provides guidance on Chrome/Chromium dependencies, executable path configuration, and system requirements for reliable operation.
+This document explains the WhatsApp Web API integration and automation built with the whatsapp-web.js library. It covers QR code authentication flow with expiration detection, session management and persistence, worker lifecycle, session states (DISCONNECTED, QR_READY, CONNECTED, CONNECTING, QR_EXPIRED), automatic reconnection, message processing workflows, template-based response generation, and error handling strategies. It also provides guidance on Chrome/Chromium dependencies, executable path configuration, and system requirements for reliable operation.
 
-**Updated** Enhanced with step-by-step connection flow, improved QR code handling, and comprehensive state management documentation.
+**Updated** Enhanced with QR code expiration detection, automatic QR regeneration, improved error reporting, group message filtering, and enhanced reconnect logic.
 
 ## Project Structure
 The integration spans three primary areas:
@@ -63,6 +65,8 @@ end
 subgraph "Control Plane"
 CP["Control Plane Server<br/>(apps/control-plane/.../server.ts)"]
 PortalRoutes["Portal Routes<br/>(apps/control-plane/.../routes/portal.ts)"]
+AdminRoutes["Admin Routes<br/>(apps/control-plane/.../routes/admin.ts)"]
+TenantView["Tenant View<br/>(apps/control-plane/.../views/tenant-detail.ejs)"]
 end
 subgraph "Worker"
 WorkerMain["Worker Entry<br/>(apps/worker/.../worker.ts)"]
@@ -75,6 +79,9 @@ WP --> StatusRoute
 QRRoute --> CP
 StatusRoute --> CP
 CP --> PortalRoutes
+PortalRoutes --> AdminRoutes
+AdminRoutes --> TenantView
+CP --> PortalRoutes
 PortalRoutes --> WorkerMain
 WorkerMain --> Bot
 Bot --> Templates
@@ -86,31 +93,35 @@ Bot --> Utils
 - [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
 - [apps/web/src/app/api/portal/tenant/current/status/route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
 - [apps/control-plane/src/server.ts](file://apps/control-plane/src/server.ts#L1-L89)
-- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L1-L246)
+- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L1-L261)
+- [apps/control-plane/src/routes/admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L460)
+- [apps/control-plane/src/views/tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs#L141-L163)
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L1-L46)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L1-L411)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L1-L586)
 
 **Section sources**
 - [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L1-L163)
 - [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
 - [apps/web/src/app/api/portal/tenant/current/status/route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
 - [apps/control-plane/src/server.ts](file://apps/control-plane/src/server.ts#L1-L89)
-- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L1-L246)
+- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L1-L261)
+- [apps/control-plane/src/routes/admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L460)
+- [apps/control-plane/src/views/tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs#L141-L163)
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L1-L46)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L1-L411)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L1-L586)
 
 ## Core Components
-- WhatsAppBot: Orchestrates the whatsapp-web.js client, event handlers, session state updates, message processing, rate limiting, deduplication, queueing, and reconnect logic.
+- WhatsAppBot: Orchestrates the whatsapp-web.js client, event handlers, session state updates, message processing, rate limiting, deduplication, queueing, and reconnect logic with enhanced QR expiration detection and error reporting.
 - Worker entry: Initializes environment, validates required variables, starts the bot, and handles graceful shutdown signals.
 - Templates: Provides template-based response generation based on tenant configuration (type, language, business name).
-- Utilities: ChatQueueManager (per-chat sequential processing), MessageDeduplicator (prevent duplicate processing), RateLimiter (outgoing reply throttling), ReconnectManager (exponential backoff).
+- Utilities: ChatQueueManager (per-chat sequential processing), MessageDeduplicator (prevent duplicate processing), RateLimiter (outgoing reply throttling), ReconnectManager (exponential backoff with comprehensive error states).
 - Web Portal: Fetches QR and status from the control plane and renders connection state to the user with enhanced state indicators.
-- Control Plane: Validates environment, exposes endpoints for QR and status, and coordinates worker lifecycle.
+- Control Plane: Validates environment, exposes endpoints for QR and status, coordinates worker lifecycle, and provides admin monitoring with alert codes.
 
-**Updated** Enhanced with new connection states and improved state management capabilities.
+**Updated** Enhanced with QR expiration detection, automatic QR regeneration, improved error reporting, and group message filtering.
 
 **Section sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L1-L411)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L1-L586)
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L1-L46)
 - [apps/worker/src/templates/index.ts](file://apps/worker/src/templates/index.ts#L1-L70)
 - [apps/worker/src/utils/chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L1-L140)
@@ -121,14 +132,17 @@ Bot --> Utils
 - [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
 - [apps/web/src/app/api/portal/tenant/current/status/route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
 - [apps/control-plane/src/server.ts](file://apps/control-plane/src/server.ts#L1-L89)
-- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L1-L246)
+- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L1-L261)
+- [apps/control-plane/src/routes/admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L460)
+- [apps/control-plane/src/views/tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs#L141-L163)
 
 ## Architecture Overview
-The system follows a client-server-worker pattern with enhanced state management:
+The system follows a client-server-worker pattern with enhanced state management and QR expiration detection:
 - The web portal communicates with the control plane via internal keys and user sessions.
-- The control plane exposes endpoints for QR retrieval and status with comprehensive state tracking.
-- The worker process initializes the WhatsApp client, persists session data, and processes messages.
+- The control plane exposes endpoints for QR retrieval and status with comprehensive state tracking including QR_EXPIRED.
+- The worker process initializes the WhatsApp client, persists session data, detects QR expiration, and processes messages.
 - Session state is stored in the database and surfaced to the portal with real-time updates.
+- Admin monitoring displays prominent alerts for BAN_SIGNAL, DISCONNECTED, and QR_EXPIRED states.
 
 ```mermaid
 sequenceDiagram
@@ -144,13 +158,18 @@ Control-->>Web : Return QR data/state
 Web-->>Browser : Render QR or status with state indicators
 Worker->>WA : initialize()
 WA-->>Worker : emit "qr"
+Worker->>Worker : Start 65-second expiry timer
 Worker->>Control : Update state=QR_READY with QR dataURL
 Control-->>Browser : QR visible in portal with countdown
+Browser->>Web : QR refreshes automatically
+Worker->>Worker : Timer expires without scan
+Worker->>Control : Update last_error=QR_EXPIRED
 WA-->>Worker : emit "ready"
+Worker->>Worker : Cancel expiry timer
 Worker->>Control : Update state=CONNECTED, last_seen_at
 Control-->>Browser : Status CONNECTED with success indicator
 WA-->>Worker : emit "message"
-Worker->>Worker : De-duplicate, Queue, Rate-limit
+Worker->>Worker : Filter group messages, De-duplicate, Queue, Rate-limit
 Worker->>Control : Log inbound/outbound messages
 Worker->>WA : reply()
 WA-->>Worker : sent
@@ -159,19 +178,20 @@ WA-->>Worker : sent
 **Diagram sources**
 - [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L1-L35)
 - [apps/web/src/app/api/portal/tenant/current/status/route.ts](file://apps/web/src/app/api/portal/tenant/current/status/route.ts#L1-L35)
-- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L192-L216)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L226)
+- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L207-L231)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L79-L109)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L111-L167)
 
 ## Detailed Component Analysis
 
 ### WhatsAppBot: Client, Events, Persistence, and Recovery
 WhatsAppBot encapsulates:
 - Client initialization with LocalAuth and headless Chromium/Puppeteer options
-- Event handlers for QR, ready, message, and disconnected with enhanced state management
-- Session state updates in the database with comprehensive state tracking
+- Event handlers for QR, ready, message, disconnected, and auth_failure with enhanced state management and QR expiration detection
+- Session state updates in the database with comprehensive state tracking including QR_EXPIRED
 - Heartbeat maintenance with periodic status updates
-- Message processing pipeline with deduplication, queueing, and rate limiting
-- Automatic reconnection with exponential backoff and error state management
+- Message processing pipeline with deduplication, queueing, rate limiting, and group message filtering
+- Automatic reconnection with exponential backoff and comprehensive error state management with alert codes
 
 ```mermaid
 classDiagram
@@ -187,6 +207,7 @@ class WhatsAppBot {
 -deduplicator : MessageDeduplicator
 -reconnectManager : ReconnectManager
 -heartbeatInterval : Timeout
+-qrExpiryTimeout : Timeout
 +constructor(tenantId, sessionsPath)
 +start()
 +stop()
@@ -232,18 +253,21 @@ WhatsAppBot --> ReconnectManager : "uses"
 - [apps/worker/src/utils/reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L14-L85)
 
 Key behaviors:
-- QR code handling: Converts QR string to a data URL and persists state=QR_READY with enhanced error handling.
-- Ready state: Updates state=CONNECTED, sets ACTIVE tenant status, RUNNING worker status, loads configuration, starts heartbeat.
-- Disconnected: Updates DISCONNECTED state, stops heartbeat, triggers reconnect manager with comprehensive error logging.
-- Auth failure: Updates ERROR state for both tenant and worker process with detailed error messages.
-- Message handling: Logs inbound, checks rate limit, generates template-based response, logs outbound, updates last_seen_at.
+- QR code handling: Converts QR string to a data URL, starts 65-second expiry timer, and persists state=QR_READY with enhanced error handling.
+- QR expiration detection: Automatically generates QR_EXPIRED error when QR is not scanned within 65 seconds.
+- Ready state: Updates state=CONNECTED, cancels QR expiry timer, sets ACTIVE tenant status, RUNNING worker status, loads configuration, starts heartbeat.
+- Disconnected: Updates DISCONNECTED state, stops heartbeat, triggers reconnect manager with comprehensive error logging including DISCONNECTED alert code.
+- Auth failure: Updates ERROR state for both tenant and worker process with detailed error messages prefixed with BAN_SIGNAL alert code.
+- Message handling: Filters group messages (@g.us), logs inbound, checks rate limit, generates template-based response, logs outbound, updates last_seen_at.
 
-**Updated** Enhanced with auth_failure event handling and comprehensive state management.
+**Updated** Enhanced with QR expiration detection, automatic QR regeneration, improved error reporting with alert codes, and group message filtering.
 
 **Section sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L226)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L228-L331)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L333-L409)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L79-L109)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L111-L167)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L169-L202)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L204-L251)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L292-L506)
 
 ### Worker Lifecycle and Signals
 The worker entry script:
@@ -276,38 +300,44 @@ Bot->>DB : disconnect
 
 **Diagram sources**
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L1-L46)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L394-L409)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L569-L584)
 
 **Section sources**
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L1-L46)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L394-L409)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L569-L584)
 
 ## Enhanced Connection Flow
 
-### Step-by-Step QR Authentication Process
-The enhanced connection flow provides a comprehensive step-by-step process with real-time state updates:
+### Step-by-Step QR Authentication Process with Expiration Detection
+The enhanced connection flow provides a comprehensive step-by-step process with real-time state updates and QR expiration detection:
 
 ```mermaid
 flowchart TD
 Start(["Worker Start"]) --> Init["Initialize Client with LocalAuth"]
 Init --> QR["Wait for QR Event"]
-QR --> QRProcessing["Convert QR to Data URL"]
+QR --> StartTimer["Start 65-second Expiry Timer"]
+StartTimer --> QRProcessing["Convert QR to Data URL"]
 QRProcessing --> SaveQR["Save QR with state=QR_READY"]
 SaveQR --> Portal["Portal Displays QR with Countdown"]
 Portal --> UserScan["User Scans QR with WhatsApp"]
-UserScan --> WAReady["WhatsApp Client Ready"]
+UserScan --> CancelTimer["Cancel Expiry Timer"]
+CancelTimer --> WAReady["WhatsApp Client Ready"]
 WAReady --> UpdateConnected["Update state=CONNECTED"]
 UpdateConnected --> SetupComplete["Setup Complete"]
 SetupComplete --> PortalRedirect["Auto-redirect to Status Page"]
+QR --> TimerExpired["Timer Expires (65 seconds)"]
+TimerExpired --> UpdateQRExpired["Update last_error=QR_EXPIRED"]
+UpdateQRExpired --> PortalAlert["Admin Panel Shows QR_EXPIRED Alert"]
 classDef default fill:#f9f9f9,stroke:#333,color:#000
 ```
 
 **Diagram sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L151)
-- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L18-L48)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L79-L109)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L111-L167)
+- [apps/control-plane/src/views/tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs#L155-L163)
 
 ### Frontend Integration with Enhanced State Management
-The web portal now provides comprehensive state indicators and real-time updates:
+The web portal now provides comprehensive state indicators and real-time updates with QR expiration awareness:
 
 ```mermaid
 stateDiagram-v2
@@ -316,32 +346,42 @@ DISCONNECTED --> QR_READY : "on('qr')"
 QR_READY --> CONNECTING : "User scans QR"
 CONNECTING --> CONNECTED : "on('ready')"
 CONNECTED --> DISCONNECTED : "on('disconnected')"
-CONNECTING --> DISCONNECTED : "on('auth_failure')"
+DISCONNECTED --> QR_EXPIRED : "QR timer expires"
+QR_READY --> QR_EXPIRED : "Timer expires without scan"
+QR_EXPIRED --> QR_READY : "Worker restarts"
 state QR_READY {
 [*] --> WaitingForScan
 WaitingForScan --> QRRefresh : "Auto-refresh QR"
+QRRefresh --> QRScanned : "User scans QR"
+QRScanned --> QRExpired : "65-second timer expires"
 }
 state CONNECTING {
 [*] --> Loading
 Loading --> Success : "Connection established"
 Loading --> Error : "Connection failed"
 }
+state QR_EXPIRED {
+[*] --> AlertDisplayed
+AlertDisplayed --> QRReady : "Worker restarted"
+}
 ```
 
 **Diagram sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L226)
-- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L81-L163)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L79-L109)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L204-L251)
+- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L18-L48)
 
-**Updated** Enhanced with CONNECTING state and comprehensive state transitions.
+**Updated** Enhanced with QR_EXPIRED state and comprehensive state transitions.
 
 **Section sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L226)
-- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L18-L163)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L79-L109)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L204-L251)
+- [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L18-L48)
 
 ## Session States and Transitions
 
-### Comprehensive State Management
-The system now manages four distinct connection states with detailed transitions:
+### Comprehensive State Management with QR Expiration
+The system now manages five distinct connection states with detailed transitions and QR expiration detection:
 
 ```mermaid
 stateDiagram-v2
@@ -351,51 +391,59 @@ QR_READY --> CONNECTING : "User scans QR"
 CONNECTING --> CONNECTED : "on('ready')"
 CONNECTING --> DISCONNECTED : "on('auth_failure')"
 CONNECTED --> DISCONNECTED : "on('disconnected')"
-DISCONNECTED --> ERROR : "Max reconnect attempts reached"
+DISCONNECTED --> QR_EXPIRED : "QR timer expires"
+QR_READY --> QR_EXPIRED : "Timer expires without scan"
+QR_EXPIRED --> QR_READY : "Worker restarts"
 state QR_READY {
 [*] --> QRDisplay
 QRDisplay --> QRRefresh : "Auto-refresh QR"
 QRDisplay --> QRScanned : "User scans QR"
+QRScanned --> QRExpired : "65-second timer expires"
 }
 state CONNECTING {
 [*] --> LoadingSpinner
 LoadingSpinner --> Success : "Connection established"
 LoadingSpinner --> Error : "Connection failed"
 }
-state ERROR {
-[*] --> AuthFailure
-AuthFailure --> Retry : "Manual retry"
+state QR_EXPIRED {
+[*] --> AlertDisplayed
+AlertDisplayed --> QRReady : "Worker restarted"
 }
 ```
 
 **Diagram sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L98-L226)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L79-L109)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L111-L167)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L204-L251)
 - [apps/worker/src/utils/reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L87-L115)
 
 ### State-Specific Behavior and UI Indicators
-Each state now has specific behavior and user interface indicators:
+Each state now has specific behavior, user interface indicators, and error reporting:
 
-- **DISCONNECTED**: Worker is offline, heartbeat stopped, reconnect process initiated
-- **QR_READY**: QR code available for scanning, portal displays QR with countdown
-- **CONNECTING**: Connection in progress, portal shows loading spinner and connecting badge
-- **CONNECTED**: Active connection, portal shows success state with auto-redirect
-- **ERROR**: Critical error state, requires manual intervention
+- **DISCONNECTED**: Worker is offline, heartbeat stopped, reconnect process initiated, error logged with DISCONNECTED alert code
+- **QR_READY**: QR code available for scanning, portal displays QR with countdown, 65-second expiry timer active, QR refreshes automatically
+- **CONNECTING**: Connection in progress, portal shows loading spinner and connecting badge, QR expiry timer cancelled on successful scan
+- **CONNECTED**: Active connection, portal shows success state with auto-redirect, QR expiry timer cancelled, heartbeat active
+- **QR_EXPIRED**: QR code expired without being scanned, admin panel shows prominent alert, requires worker restart for new QR
 
-**Updated** Added CONNECTING state and comprehensive state management with UI indicators.
+**Updated** Added QR_EXPIRED state with comprehensive QR expiration detection and error reporting.
 
 **Section sources**
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L98-L226)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L79-L109)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L111-L167)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L204-L251)
 - [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L124-L163)
+- [apps/control-plane/src/views/tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs#L155-L163)
 - [apps/worker/src/utils/reconnect.ts](file://apps/worker/src/utils/reconnect.ts#L14-L117)
 
 ## Dependency Analysis
 External libraries and runtime dependencies:
-- whatsapp-web.js: Core WhatsApp client
-- qrcode: QR data URL generation
+- whatsapp-web.js: Core WhatsApp client with enhanced event handling
+- qrcode: QR data URL generation with automatic QR regeneration
 - puppeteer/chromium: Headless browser automation
 - dotenv: Environment configuration
-- pino/pino-pretty/pino/file: Structured logging
-- prisma/@prisma/client: Database access
+- pino/pino-pretty/pino/file: Structured logging with enhanced error reporting
+- prisma/@prisma/client: Database access with comprehensive state tracking
 
 ```mermaid
 graph TB
@@ -428,11 +476,13 @@ Shared --> Pino["pino + transports"]
 - Heartbeat keeps the worker alive and monitored with configurable intervals.
 - Exponential backoff reduces load during reconnection storms.
 - Enhanced state management reduces unnecessary reconnection attempts.
+- QR expiration detection prevents resource waste from expired QR codes.
+- Group message filtering reduces processing overhead by ignoring group messages.
 
 ## Troubleshooting Guide
 
-### Enhanced State-Specific Troubleshooting
-Common issues and resolutions with state-specific guidance:
+### Enhanced State-Specific Troubleshooting with QR Expiration
+Common issues and resolutions with state-specific guidance and QR expiration scenarios:
 
 #### QR State Issues
 - **QR code not displaying or refreshing**
@@ -440,11 +490,19 @@ Common issues and resolutions with state-specific guidance:
   - Ensure the worker is running and connected to the database.
   - Confirm the portal route forwards internal key and user email headers.
   - Check that QR data URL is properly generated and stored.
+  - Monitor QR expiry timer and restart worker if QR_EXPIRED appears.
 
 - **QR code shows but won't scan**
   - Verify QR code refreshes automatically every 3 seconds.
   - Ensure portal displays countdown timer for QR refresh.
   - Check that QR data URL is valid and not corrupted.
+  - Confirm QR expiry timer is active (65 seconds) and resets on new QR.
+
+- **QR code expires frequently**
+  - Check network connectivity and user device performance.
+  - Verify QR expiry timer is resetting on each new QR event.
+  - Monitor admin panel for QR_EXPIRED alerts and worker restarts.
+  - Ensure user has sufficient time to scan QR before expiration.
 
 #### Connecting State Issues
 - **Connection stuck in CONNECTING state**
@@ -452,6 +510,7 @@ Common issues and resolutions with state-specific guidance:
   - Check that Puppeteer can access the browser binary.
   - Monitor reconnection attempts and logs for authentication failures.
   - Look for auth_failure events indicating permanent connection issues.
+  - Check QR expiry timer cancellation on successful QR scan.
 
 #### Connected State Issues
 - **Connection drops to DISCONNECTED frequently**
@@ -459,33 +518,64 @@ Common issues and resolutions with state-specific guidance:
   - Check network connectivity and firewall settings.
   - Verify session persistence is working correctly.
   - Review reconnection logs for patterns.
+  - Look for DISCONNECTED alert codes in admin panel.
 
 - **Messages not being processed**
   - Check chat queue status for blocked messages.
   - Verify rate limiter configuration allows sufficient replies.
   - Ensure template configuration is properly loaded.
   - Monitor deduplication cache for message processing issues.
+  - Verify group message filtering is not blocking legitimate messages.
+
+- **Group messages not responding**
+  - Confirm group message filtering is working correctly.
+  - Verify messages from @g.us are being filtered out.
+  - Check that 1-on-1 messages are still being processed.
+  - Review message handling logs for group message detection.
+
+#### QR_EXPIRED State Issues
+- **Worker shows QR_EXPIRED status**
+  - Check QR expiry timer configuration (65 seconds).
+  - Verify QR events are triggering timer resets.
+  - Confirm QR data URL generation is successful.
+  - Restart worker to generate new QR code.
+  - Monitor admin panel for QR_EXPIRED alerts.
+
+- **Frequent QR_EXPIRED errors**
+  - Check user device performance and network connectivity.
+  - Verify QR refresh mechanism is working correctly.
+  - Monitor QR expiry timer behavior and resets.
+  - Ensure sufficient time for user to scan QR before expiration.
 
 #### Error State Issues
-- **Worker shows ERROR status**
+- **Worker shows ERROR status with BAN_SIGNAL**
   - Check auth_failure logs for authentication problems.
   - Verify tenant configuration is correct.
   - Review database connection status.
   - Check for exceeded rate limits or queue capacity issues.
+  - Confirm number may be banned by WhatsApp and requires SIM verification.
 
-**Updated** Added CONNECTING state troubleshooting and enhanced state-specific guidance.
+- **Worker shows ERROR status with DISCONNECTED**
+  - Check disconnection reasons and reconnection attempts.
+  - Verify network connectivity and firewall settings.
+  - Monitor reconnection logs for patterns.
+  - Review admin panel for DISCONNECTED alert codes.
+
+**Updated** Added QR_EXPIRED state troubleshooting, QR expiration scenarios, and enhanced error reporting guidance.
 
 **Section sources**
 - [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L15-L34)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L58-L62)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L210-L226)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L82-L92)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L115-L116)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L210-L251)
 - [apps/control-plane/src/server.ts](file://apps/control-plane/src/server.ts#L34-L38)
 - [apps/worker/src/utils/rate-limiter.ts](file://apps/worker/src/utils/rate-limiter.ts#L98-L105)
 - [apps/worker/src/utils/chat-queue.ts](file://apps/worker/src/utils/chat-queue.ts#L38-L42)
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L38-L45)
+- [apps/control-plane/src/views/tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs#L141-L163)
 
 ## Conclusion
-The integration leverages whatsapp-web.js with robust session management, persistent state tracking, and resilient message processing. The worker process maintains health via heartbeat and reconnect logic, while the portal provides real-time visibility into QR and connection status with comprehensive state indicators. By tuning environment variables and ensuring proper Chrome/Chromium configuration, the system achieves reliable automation for WhatsApp Web with enhanced state management and user experience.
+The integration leverages whatsapp-web.js with robust session management, persistent state tracking, QR expiration detection, and resilient message processing. The worker process maintains health via heartbeat and reconnect logic, while the portal provides real-time visibility into QR and connection status with comprehensive state indicators. Enhanced error reporting with alert codes (BAN_SIGNAL, DISCONNECTED, QR_EXPIRED) provides clear operational insights. By tuning environment variables and ensuring proper Chrome/Chromium configuration, the system achieves reliable automation for WhatsApp Web with enhanced state management, QR expiration handling, and user experience.
 
 ## Appendices
 
@@ -496,11 +586,12 @@ The integration leverages whatsapp-web.js with robust session management, persis
 - HEARTBEAT_INTERVAL_MS: Interval for heartbeat updates.
 - PUPPETEER_EXECUTABLE_PATH: Path to Chrome/Chromium binary (required in production).
 - CONTROL_PLANE_URL and PORTAL_INTERNAL_KEY: Used by web routes to proxy requests to the control plane.
+- QR_EXPIRATION_SECONDS: Configures QR expiry timer (default 65 seconds).
 
 **Section sources**
 - [apps/worker/src/worker.ts](file://apps/worker/src/worker.ts#L7-L8)
 - [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L33-L34)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L333-L359)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L82-L92)
 - [apps/control-plane/src/server.ts](file://apps/control-plane/src/server.ts#L17-L39)
 - [apps/web/src/app/api/portal/tenant/current/qr/route.ts](file://apps/web/src/app/api/portal/tenant/current/qr/route.ts#L5-L6)
 
@@ -508,21 +599,28 @@ The integration leverages whatsapp-web.js with robust session management, persis
 - Structured logging via pino with pretty output and optional per-tenant file transport.
 - Logs are written under a logs directory relative to the project root.
 - Enhanced state change logging for debugging connection issues.
-- Comprehensive error logging for authentication and connection failures.
+- Comprehensive error logging for authentication failures with alert codes.
+- QR expiration detection logs for troubleshooting QR-related issues.
 
 **Section sources**
 - [packages/shared/src/utils/logger.ts](file://packages/shared/src/utils/logger.ts#L5-L30)
 - [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L93-L95)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L210-L226)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L210-L251)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L84-L92)
 
 ### Enhanced State Management Features
 - Real-time state transitions with comprehensive logging
 - Frontend state indicators with visual feedback
 - Auto-refresh QR codes with countdown timers
+- QR expiration detection with 65-second timeout
 - Graceful error handling with state recovery
 - Detailed troubleshooting information for each state
+- Prominent admin alerts for critical error conditions (BAN_SIGNAL, QR_EXPIRED)
+- Group message filtering for improved performance
 
 **Section sources**
 - [apps/web/src/app/(portal)/app/whatsapp/page.tsx](file://apps/web/src/app/(portal)/app/whatsapp/page.tsx#L81-L163)
-- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L77-L226)
-- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L192-L216)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L79-L109)
+- [apps/worker/src/bot.ts](file://apps/worker/src/bot.ts#L169-L202)
+- [apps/control-plane/src/routes/portal.ts](file://apps/control-plane/src/routes/portal.ts#L207-L231)
+- [apps/control-plane/src/views/tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs#L141-L163)

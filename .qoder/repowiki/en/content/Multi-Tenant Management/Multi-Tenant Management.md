@@ -8,6 +8,7 @@
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts)
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts)
 - [tenants.ejs](file://apps/control-plane/src/views/tenants.ejs)
+- [tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs)
 - [prisma.ts](file://apps/web/src/lib/prisma.ts)
 - [middleware.ts](file://apps/web/src/middleware.ts)
 - [auth.ts](file://apps/web/src/lib/auth.ts)
@@ -19,17 +20,27 @@
 - [stress-test.ts](file://scripts/stress-test.ts)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Added comprehensive billing and subscription management system documentation
+- Updated tenant lifecycle management to include subscription tracking
+- Enhanced admin interfaces with subscription and billing card
+- Added automated billing cron job documentation
+- Updated tenant detail views with subscription management capabilities
+- Added WhatsApp reminder integration for subscription management
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+6. [Billing and Subscription Management System](#billing-and-subscription-management-system)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
 This document explains the Flow HQ multi-tenant management system with a focus on:
@@ -39,6 +50,8 @@ This document explains the Flow HQ multi-tenant management system with a focus o
 - Setup request workflow
 - Prisma multi-tenant database design and tenant isolation
 - Tenant lifecycle management from creation to deletion
+- **New**: Comprehensive billing and subscription management system
+- **New**: Automated billing cron jobs and WhatsApp reminder integration
 - Practical examples and administrative control plane operations
 - Security considerations for tenant isolation, access control, and data privacy
 
@@ -56,6 +69,7 @@ CP_Server["Express Server<br/>server.ts"]
 CP_Admin["Admin Routes<br/>admin.ts"]
 CP_Auth["Admin Auth Middleware<br/>auth.ts"]
 CP_View["Admin Views (EJS)<br/>tenants.ejs"]
+CP_TenantDetail["Tenant Detail Views<br/>tenant-detail.ejs"]
 end
 subgraph "Web Portal"
 WP_MW["Next.js Middleware<br/>middleware.ts"]
@@ -74,6 +88,7 @@ CP_Server --> CP_Admin
 CP_Admin --> Shared
 CP_Auth --> CP_Admin
 CP_View --> CP_Admin
+CP_TenantDetail --> CP_Admin
 WP_MW --> WP_NextAuth
 WP_NextAuth --> Shared
 WP_ClientPrisma --> Shared
@@ -85,10 +100,11 @@ WK_Templates --> WK_Bot
 ```
 
 **Diagram sources**
-- [server.ts](file://apps/control-plane/src/server.ts#L1-L89)
-- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L528)
+- [server.ts](file://apps/control-plane/src/server.ts#L1-L174)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L432)
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L1-L40)
 - [tenants.ejs](file://apps/control-plane/src/views/tenants.ejs#L1-L185)
+- [tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs#L1-L419)
 - [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
 - [auth.ts](file://apps/web/src/lib/auth.ts#L1-L76)
 - [prisma.ts](file://apps/web/src/lib/prisma.ts#L1-L10)
@@ -97,14 +113,15 @@ WK_Templates --> WK_Bot
 - [worker.ts](file://apps/worker/src/worker.ts#L1-L46)
 - [bot.ts](file://apps/worker/src/bot.ts#L1-L395)
 - [index.ts](file://apps/worker/src/templates/index.ts#L1-L70)
-- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L1-L178)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L1-L261)
 
 **Section sources**
 - [README.md](file://README.md#L116-L129)
-- [server.ts](file://apps/control-plane/src/server.ts#L1-L89)
-- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L528)
+- [server.ts](file://apps/control-plane/src/server.ts#L1-L174)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L432)
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L1-L40)
 - [tenants.ejs](file://apps/control-plane/src/views/tenants.ejs#L1-L185)
+- [tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs#L1-L419)
 - [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
 - [auth.ts](file://apps/web/src/lib/auth.ts#L1-L76)
 - [prisma.ts](file://apps/web/src/lib/prisma.ts#L1-L10)
@@ -113,11 +130,12 @@ WK_Templates --> WK_Bot
 - [worker.ts](file://apps/worker/src/worker.ts#L1-L46)
 - [bot.ts](file://apps/worker/src/bot.ts#L1-L395)
 - [index.ts](file://apps/worker/src/templates/index.ts#L1-L70)
-- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L1-L178)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L1-L261)
 
 ## Core Components
 - Control Plane Admin API and Dashboard
   - Provides tenant CRUD, worker lifecycle controls, QR retrieval, and logs.
+  - **New**: Subscription and billing management with automated cron jobs.
   - Uses admin authentication via password or Basic Auth.
 - Web Portal
   - NextAuth-based user portal with middleware enforcing session and onboarding flows.
@@ -126,24 +144,31 @@ WK_Templates --> WK_Bot
   - Per-tenant WhatsApp bot with session isolation, heartbeat, rate limiting, and resilience features.
 - Shared Prisma Schema
   - Defines tenant isolation via tenant_id foreign keys and enums for statuses and roles.
+  - **New**: Subscription fields (subscription_end_date, subscription_status) for billing tracking.
 
 Key implementation references:
 - Admin routes and worker lifecycle: [admin.ts](file://apps/control-plane/src/routes/admin.ts#L104-L283)
+- **New**: Subscription management endpoint: [admin.ts](file://apps/control-plane/src/routes/admin.ts#L238-L263)
 - Admin auth middleware: [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L5-L28)
 - Control plane server bootstrap and background tasks: [server.ts](file://apps/control-plane/src/server.ts#L65-L81)
+- **New**: Billing cron job implementation: [server.ts](file://apps/control-plane/src/server.ts#L67-L147)
 - Portal NextAuth and middleware: [auth.ts](file://apps/web/src/lib/auth.ts#L14-L70), [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
 - Worker bootstrap and bot lifecycle: [worker.ts](file://apps/worker/src/worker.ts#L17-L24), [bot.ts](file://apps/worker/src/bot.ts#L353-L376)
 - Prisma schema multi-tenant relations: [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L148)
+- **New**: Subscription fields in schema: [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L71-L72)
 
 **Section sources**
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L104-L283)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L238-L263)
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L5-L28)
 - [server.ts](file://apps/control-plane/src/server.ts#L65-L81)
+- [server.ts](file://apps/control-plane/src/server.ts#L67-L147)
 - [auth.ts](file://apps/web/src/lib/auth.ts#L14-L70)
 - [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
 - [worker.ts](file://apps/worker/src/worker.ts#L17-L24)
 - [bot.ts](file://apps/worker/src/bot.ts#L353-L376)
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L148)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L71-L72)
 
 ## Architecture Overview
 The system enforces tenant isolation at multiple layers:
@@ -151,6 +176,7 @@ The system enforces tenant isolation at multiple layers:
 - Process-level isolation via per-tenant PM2 worker processes
 - Session-level isolation via per-tenant session directories and WhatsApp sessions
 - API-level isolation via admin authentication and portal internal keys
+- **New**: Subscription-level isolation via subscription_end_date and subscription_status fields
 
 ```mermaid
 sequenceDiagram
@@ -160,6 +186,7 @@ participant DB as "Prisma (schema.prisma)"
 participant PM2 as "PM2"
 participant Worker as "Worker (bot.ts)"
 participant WA as "WhatsApp Web"
+participant BillingCron as "Billing Cron (server.ts)"
 AdminUI->>AdminAPI : POST /admin/tenants
 AdminAPI->>DB : Create Tenant + TenantConfig + WhatsAppSession + WorkerProcess
 AdminUI->>AdminAPI : POST /admin/tenants/ : id/worker/start
@@ -173,23 +200,33 @@ AdminUI->>AdminAPI : GET /admin/tenants/ : id/qr
 AdminUI-->>AdminUI : Display QR for tenant
 Worker->>DB : Heartbeat last_seen_at
 Worker->>DB : Log message logs (IN/OUT)
+BillingCron->>DB : Check subscription status daily
+BillingCron->>AdminAPI : Pause overdue tenants
+BillingCron->>DB : Log payment reminders
+AdminUI->>AdminAPI : POST /admin/tenants/ : id/subscription
+AdminAPI->>DB : Update subscription_end_date/status
+AdminAPI->>DB : Create PAYMENT_RECORDED event
 ```
 
 **Diagram sources**
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L104-L140)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L174-L230)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L238-L263)
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L148)
 - [worker.ts](file://apps/worker/src/worker.ts#L17-L24)
 - [bot.ts](file://apps/worker/src/bot.ts#L77-L135)
 - [tenants.ejs](file://apps/control-plane/src/views/tenants.ejs#L158-L182)
+- [server.ts](file://apps/control-plane/src/server.ts#L67-L147)
 
 **Section sources**
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L104-L140)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L174-L230)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L238-L263)
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L148)
 - [worker.ts](file://apps/worker/src/worker.ts#L17-L24)
 - [bot.ts](file://apps/worker/src/bot.ts#L77-L135)
 - [tenants.ejs](file://apps/control-plane/src/views/tenants.ejs#L158-L182)
+- [server.ts](file://apps/control-plane/src/server.ts#L67-L147)
 
 ## Detailed Component Analysis
 
@@ -197,6 +234,7 @@ Worker->>DB : Log message logs (IN/OUT)
 - Admin creates a tenant with associated TenantConfig, WhatsAppSession, and WorkerProcess.
 - The admin dashboard form posts to the admin API, which persists the tenant and initializes related records.
 - The worker is started via PM2 with environment variables for TENANT_ID and SESSIONS_PATH.
+- **New**: Tenant creation now includes subscription fields with default ACTIVE status.
 
 ```mermaid
 sequenceDiagram
@@ -267,7 +305,7 @@ PortalAPI-->>User : Result
 
 ### Template Selection and Customization
 - Templates are selected via TenantConfig.template_type and language.
-- The worker loads the tenant’s configuration and selects a response generator based on template_type.
+- The worker loads the tenant's configuration and selects a response generator based on template_type.
 - New templates can be added by extending the template index and updating the Prisma enum if needed.
 
 ```mermaid
@@ -331,6 +369,7 @@ Admin->>DB : Log SETUP_REQUEST_APPROVED
 - Creation: Tenant + TenantConfig + WhatsAppSession + WorkerProcess created atomically.
 - Activation: Worker starts, QR is generated, session state transitions to QR_READY, then ACTIVE.
 - Monitoring: Heartbeat updates last_seen_at; stale workers are auto-detected and marked ERROR.
+- **New**: Subscription management: Active tenants with valid subscription_end_date remain active, while expired subscriptions trigger automatic pausing.
 - Deletion: Stress test demonstrates cascading deletion of tenant and related records.
 
 ```mermaid
@@ -339,8 +378,8 @@ stateDiagram-v2
 NEW --> QR_PENDING : "Worker started"
 QR_PENDING --> QR_READY : "QR received"
 QR_READY --> ACTIVE : "Connected"
-ACTIVE --> PAUSED : "Stopped"
-PAUSED --> ACTIVE : "Restarted"
+ACTIVE --> PAUSED : "Subscription expired"
+PAUSED --> ACTIVE : "Payment renewed"
 ACTIVE --> ERROR : "Disconnected/Auth Failure/Stale"
 ERROR --> QR_PENDING : "Force Restart"
 ERROR --> [*]
@@ -351,18 +390,21 @@ ERROR --> [*]
 - [bot.ts](file://apps/worker/src/bot.ts#L98-L135)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L30-L80)
 - [stress-test.ts](file://scripts/stress-test.ts#L314-L324)
+- [server.ts](file://apps/control-plane/src/server.ts#L77-L107)
 
 **Section sources**
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L104-L140)
 - [bot.ts](file://apps/worker/src/bot.ts#L98-L135)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L30-L80)
 - [stress-test.ts](file://scripts/stress-test.ts#L314-L324)
+- [server.ts](file://apps/control-plane/src/server.ts#L77-L107)
 
 ### Prisma Multi-Tenant Database Design
 - Tenant is the root entity; all other entities are linked via tenant_id.
 - Unique constraints ensure one-to-one relationships (TenantConfig, WhatsAppSession, WorkerProcess).
 - Indexes optimize tenant-scoped queries (e.g., message logs by tenant and time).
 - Enums define statuses and roles consistently across the system.
+- **New**: Subscription fields (subscription_end_date, subscription_status) track billing cycles and subscription states.
 
 ```mermaid
 erDiagram
@@ -373,6 +415,8 @@ string phone_number
 enum status
 timestamp created_at
 timestamp updated_at
+timestamp subscription_end_date
+string subscription_status
 }
 TENANT_CONFIG {
 uuid id PK
@@ -444,47 +488,119 @@ USER ||--o{ SETUP_REQUEST : "creates"
 
 **Diagram sources**
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L177)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L71-L72)
 
 **Section sources**
 - [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L60-L177)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L71-L72)
 
 ### Practical Examples
 - Admin dashboard tenant creation and worker controls:
   - Form fields: business name, phone number, template type, display name, language.
   - Actions: Start, Stop, Restart, Force Restart; View details and logs.
+- **New**: Subscription management in tenant detail view:
+  - Edit payment end date and subscription status (ACTIVE/CANCELLED).
+  - Automatic status indicators (ACTIVE, DUE SOON, OVERDUE, CANCELLED).
+  - WhatsApp reminder integration for upcoming renewals.
 - User onboarding and portal flows:
   - NextAuth sign-in with Google; automatic tenant/user creation.
   - Redirects to onboarding or status depending on setup request presence.
 - Administrative management:
   - Approve or reject setup requests; monitor worker health and logs.
+  - **New**: Monitor subscription status and send payment reminders.
 
 **Section sources**
 - [tenants.ejs](file://apps/control-plane/src/views/tenants.ejs#L42-L74)
 - [tenants.ejs](file://apps/control-plane/src/views/tenants.ejs#L158-L182)
+- [tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs#L289-L358)
 - [auth.ts](file://apps/web/src/lib/auth.ts#L14-L70)
 - [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L419-L489)
+
+## Billing and Subscription Management System
+
+### Subscription Tracking and Status Management
+The system now includes comprehensive subscription management with automatic tracking and status updates:
+
+- **Subscription Fields**: Each tenant has subscription_end_date and subscription_status fields
+- **Status States**: ACTIVE, CANCELLED, PAST_DUE (automatically set)
+- **Manual Updates**: Admin can manually update subscription dates and status
+- **Audit Trail**: All subscription changes are logged as PAYMENT_RECORDED events
+
+### Automated Billing Cron Job
+A daily cron job automatically manages tenant subscriptions:
+
+```mermaid
+flowchart TD
+Start(["Daily Billing Cron"]) --> CheckOverdue["Check Overdue Tenants"]
+CheckOverdue --> Overdue{"Subscription Expired?"}
+Overdue --> |Yes| PauseTenant["Pause Tenant & Stop Worker"]
+Overdue --> |No| CheckDueSoon["Check Due Soon Tenants"]
+PauseTenant --> LogEvent["Log SUBSCRIPTION_PAUSED_OVERDUE"]
+CheckDueSoon --> DueSoon{"Due Within 5 Days?"}
+DueSoon --> |Yes| LogReminder["Log PAYMENT_REMINDER_DUE Event"]
+DueSoon --> |No| Complete["Complete Processing"]
+LogReminder --> Complete
+LogEvent --> Complete
+Complete --> End(["Cron Complete"])
+```
+
+**Diagram sources**
+- [server.ts](file://apps/control-plane/src/server.ts#L67-L147)
+
+#### Overdue Tenant Handling
+- **Detection**: Tenants with ACTIVE status and expired subscription_end_date
+- **Actions**: Automatically pause tenant status and stop worker process
+- **Logging**: Creates SUBSCRIPTION_PAUSED_OVERDUE event with subscription details
+
+#### Payment Reminder System
+- **Timing**: Monitors tenants due within 5 days of subscription expiration
+- **Logging**: Creates PAYMENT_REMINDER_DUE events with days_left calculation
+- **WhatsApp Integration**: Direct link to send WhatsApp reminders to customers
+
+### Tenant Detail View Enhancements
+The tenant detail view now includes a comprehensive Subscription & Billing card:
+
+- **Status Indicators**: Color-coded badges (ACTIVE, DUE SOON, OVERDUE, CANCELLED)
+- **Visual Countdown**: Days remaining until subscription expiration
+- **Manual Controls**: Forms to update payment end dates and subscription status
+- **WhatsApp Reminders**: Direct integration for sending payment reminders
+
+### Admin Interface Updates
+- **Subscription Endpoint**: POST /admin/tenants/:id/subscription for manual updates
+- **Event Logging**: All subscription changes recorded in portal_event_logs
+- **Real-time Status**: Automatic status updates based on subscription expiration
+
+**Section sources**
+- [server.ts](file://apps/control-plane/src/server.ts#L67-L147)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L238-L263)
+- [tenant-detail.ejs](file://apps/control-plane/src/views/tenant-detail.ejs#L289-L358)
+- [schema.prisma](file://packages/shared/src/prisma/schema.prisma#L71-L72)
 
 ## Dependency Analysis
 - Control Plane depends on shared Prisma client and admin middleware.
 - Web Portal depends on NextAuth and Prisma adapter; communicates with Admin API via internal keys.
 - Worker depends on Prisma client and local session storage; connects to WhatsApp Web.
+- **New**: Billing cron job depends on tenant subscription fields and portal event logging.
 
 ```mermaid
 graph LR
 CP["Control Plane (server.ts)"] --> ADM["Admin Routes (admin.ts)"]
 CP --> AUTHM["Admin Auth (auth.ts)"]
 ADM --> PRISMA["Prisma Client (shared)"]
+CP --> BILLING["Billing Cron (subscription monitoring)"]
 WP["Web Portal (middleware.ts)"] --> NEXTAUTH["NextAuth (lib/auth.ts)"]
 NEXTAUTH --> PRISMA
 WPAPI["Portal APIs"] --> ADM
 WK["Worker (worker.ts)"] --> BOT["Bot (bot.ts)"]
 BOT --> PRISMA
+BILLING --> PRISMA
+BILLING --> EVENTS["Portal Event Logs"]
 ```
 
 **Diagram sources**
-- [server.ts](file://apps/control-plane/src/server.ts#L1-L89)
-- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L528)
+- [server.ts](file://apps/control-plane/src/server.ts#L1-L174)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L432)
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L1-L40)
 - [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
 - [auth.ts](file://apps/web/src/lib/auth.ts#L1-L76)
@@ -493,8 +609,8 @@ BOT --> PRISMA
 - [bot.ts](file://apps/worker/src/bot.ts#L1-L395)
 
 **Section sources**
-- [server.ts](file://apps/control-plane/src/server.ts#L1-L89)
-- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L528)
+- [server.ts](file://apps/control-plane/src/server.ts#L1-L174)
+- [admin.ts](file://apps/control-plane/src/routes/admin.ts#L1-L432)
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L1-L40)
 - [middleware.ts](file://apps/web/src/middleware.ts#L1-L44)
 - [auth.ts](file://apps/web/src/lib/auth.ts#L1-L76)
@@ -508,8 +624,7 @@ BOT --> PRISMA
 - Rate limiting per tenant protects downstream services and ensures fair usage.
 - Message de-duplication and per-chat queues avoid redundant processing and maintain ordering.
 - Database indexes on tenant_id and timestamps optimize tenant-scoped queries.
-
-[No sources needed since this section provides general guidance]
+- **New**: Billing cron job runs efficiently with minimal database overhead using targeted queries.
 
 ## Troubleshooting Guide
 - QR code not appearing:
@@ -522,16 +637,19 @@ BOT --> PRISMA
   - Ensure Chromium installation and PUPPETEER_EXECUTABLE_PATH configured in production.
 - Stale workers:
   - Dashboard shows STALE when worker has not sent heartbeat for threshold minutes; use Force Restart.
+- **New**: Subscription issues:
+  - Check billing cron logs for errors; verify subscription_end_date format.
+  - Manual subscription updates may fail if date is in the past.
+  - Payment reminder links require valid phone_number format.
 
 **Section sources**
 - [README.md](file://README.md#L185-L208)
 - [README.md](file://README.md#L452-L474)
 - [admin.ts](file://apps/control-plane/src/routes/admin.ts#L30-L80)
+- [server.ts](file://apps/control-plane/src/server.ts#L137-L139)
 
 ## Conclusion
-Flow HQ implements robust multi-tenant isolation across database, process, session, and API layers. The admin control plane provides comprehensive tenant lifecycle management, while the portal enables seamless user onboarding and setup request workflows. The worker embeds stability features to ensure reliable per-tenant operations, and the shared Prisma schema enforces data segregation and auditability.
-
-[No sources needed since this section summarizes without analyzing specific files]
+Flow HQ implements robust multi-tenant isolation across database, process, session, and API layers. The admin control plane provides comprehensive tenant lifecycle management, while the portal enables seamless user onboarding and setup request workflows. The worker embeds stability features to ensure reliable per-tenant operations, and the shared Prisma schema enforces data segregation and auditability. **The addition of comprehensive billing and subscription management systems enhances operational control with automated renewal tracking, payment reminders, and subscription lifecycle management.**
 
 ## Appendices
 
@@ -545,8 +663,12 @@ Flow HQ implements robust multi-tenant isolation across database, process, sessi
 - Data privacy:
   - WhatsApp sessions are stored locally per tenant; ensure secure storage and backups.
   - Logs and message history are tenant-scoped; apply retention policies as needed.
+- **New**: Subscription data security:
+  - Subscription fields are sensitive billing information requiring admin authentication.
+  - All subscription changes are logged for audit purposes.
 
 **Section sources**
 - [stress-test.ts](file://scripts/stress-test.ts#L137-L256)
 - [auth.ts](file://apps/control-plane/src/middleware/auth.ts#L5-L28)
 - [route.ts](file://apps/web/src/app/api/portal/setup-request/route.ts#L18-L26)
+- [server.ts](file://apps/control-plane/src/server.ts#L67-L147)
