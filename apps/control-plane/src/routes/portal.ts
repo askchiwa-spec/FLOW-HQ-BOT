@@ -257,4 +257,38 @@ router.get('/tenant/current/logs', portalAuthMiddleware, async (req: Request, re
   }
 });
 
+/**
+ * GET /portal/customers
+ * Get customers (leads) for the authenticated tenant
+ */
+router.get('/customers', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const user = await getUserFromRequest(req);
+
+    if (!user?.tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const status = req.query.status as string | undefined;
+
+    const customers = await prisma.customer.findMany({
+      where: {
+        tenant_id: user.tenant.id,
+        ...(status ? { lead_status: status as any } : {}),
+      },
+      orderBy: { last_interaction: 'desc' },
+    });
+
+    const total = await prisma.customer.count({ where: { tenant_id: user.tenant.id } });
+    const newLeads = await prisma.customer.count({ where: { tenant_id: user.tenant.id, lead_status: 'NEW' } });
+    const pending = await prisma.customer.count({ where: { tenant_id: user.tenant.id, lead_status: 'PENDING' } });
+    const confirmed = await prisma.customer.count({ where: { tenant_id: user.tenant.id, lead_status: 'CONFIRMED' } });
+
+    res.json({ customers, stats: { total, new: newLeads, pending, confirmed } });
+  } catch (error) {
+    logger.error('Error fetching portal customers:', error);
+    res.status(500).json({ error: 'Failed to fetch customers' });
+  }
+});
+
 export default router;
