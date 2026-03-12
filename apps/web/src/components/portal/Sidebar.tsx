@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 
 const navigation = [
   { name: 'Dashboard', href: '/app/status', icon: HomeIcon },
@@ -74,9 +75,7 @@ export function PortalSidebar({ user }: { user: any }) {
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-dark-900/95 backdrop-blur-md border-b border-white/10 px-4 py-3">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">C</span>
-            </div>
+            <Image src="/logo.png" alt="Chatisha Bot" width={32} height={32} className="h-8 w-auto" />
             <span className="text-white font-heading font-bold">Chatisha</span>
           </Link>
           <button
@@ -119,9 +118,7 @@ export function PortalSidebar({ user }: { user: any }) {
           {/* Logo */}
           <div className="h-16 flex items-center px-6 border-b border-white/10">
             <Link href="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center shadow-lg shadow-primary-500/20">
-                <span className="text-white font-bold text-lg">C</span>
-              </div>
+              <Image src="/logo.png" alt="Chatisha Bot" width={40} height={40} className="h-10 w-auto" />
               <div>
                 <span className="text-white font-heading font-bold text-xl">Chatisha</span>
                 <span className="block text-xs text-primary-400">Portal</span>
