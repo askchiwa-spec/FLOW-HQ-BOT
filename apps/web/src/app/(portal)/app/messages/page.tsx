@@ -22,7 +22,7 @@ export default function LogsPage() {
       setRefreshing(true);
       const res = await fetch('/api/portal/tenant/current/messages');
       const data = await res.json();
-      setLogs(data);
+      setLogs(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching logs:', error);
     } finally {
