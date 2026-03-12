@@ -291,4 +291,57 @@ router.get('/customers', portalAuthMiddleware, async (req: Request, res: Respons
   }
 });
 
+/**
+ * PATCH /portal/profile
+ * Update tenant profile: business name, whatsapp number, language, template type
+ */
+router.patch('/profile', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const user = await getUserFromRequest(req);
+
+    if (!user?.tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const { businessName, whatsappNumber, language, templateType } = req.body;
+
+    // Update tenant base fields
+    const updatedTenant = await prisma.tenant.update({
+      where: { id: user.tenant.id },
+      data: {
+        ...(businessName ? { name: businessName } : {}),
+        ...(whatsappNumber ? { phone_number: whatsappNumber } : {}),
+      },
+    });
+
+    // Update tenant config if language or templateType provided
+    if (language || templateType || businessName) {
+      await prisma.tenantConfig.upsert({
+        where: { tenant_id: user.tenant.id },
+        create: {
+          tenant_id: user.tenant.id,
+          business_name: businessName || updatedTenant.name,
+          language: language || 'SW',
+          template_type: templateType || 'SUPPORT',
+        },
+        update: {
+          ...(businessName ? { business_name: businessName } : {}),
+          ...(language ? { language } : {}),
+          ...(templateType ? { template_type: templateType } : {}),
+        },
+      });
+    }
+
+    const config = await prisma.tenantConfig.findUnique({ where: { tenant_id: user.tenant.id } });
+
+    res.json({
+      tenant: updatedTenant,
+      config,
+    });
+  } catch (error) {
+    logger.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
 export default router;
