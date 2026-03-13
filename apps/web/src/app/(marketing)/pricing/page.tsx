@@ -8,8 +8,8 @@ const plans = [
   {
     name: 'Business Assistant',
     subtitle: 'Perfect for small businesses',
-    setupPrice: 350000,
-    monthlyPrice: 100000,
+    setupPrice: 200000,
+    monthlyPrice: 80000,
     currency: 'TZS',
     features: [
       'WhatsApp automation',

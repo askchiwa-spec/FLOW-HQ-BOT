@@ -15,7 +15,7 @@ const faqs = [
   },
   {
     question: 'How much does it cost?',
-    answer: 'Our Business Assistant plan is 350,000 TZS one-time setup plus 100,000 TZS monthly. This includes WhatsApp automation, 1 template, Swahili & English support, message logs, and email support. We also offer Premium plans for larger businesses.',
+    answer: 'Our Business Assistant plan is 200,000 TZS one-time setup plus 80,000 TZS monthly. This includes WhatsApp automation, 1 template, Swahili & English support, message logs, and email support. We also offer Premium plans for larger businesses.',
   },
   {
     question: 'Can I cancel anytime?',

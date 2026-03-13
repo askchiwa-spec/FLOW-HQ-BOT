@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 const footerLinks = {
   product: [
@@ -28,7 +29,7 @@ const socialLinks = [
     ),
   },
   {
-    href: 'https://twitter.com/chatisha',
+    href: 'https://twitter.com/chatisha_bot',
     label: 'Twitter',
     icon: (
       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -37,7 +38,7 @@ const socialLinks = [
     ),
   },
   {
-    href: 'https://instagram.com/chatisha',
+    href: 'https://instagram.com/chatisha_bot',
     label: 'Instagram',
     icon: (
       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -64,9 +65,7 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-2 lg:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center">
-                <span className="text-white font-bold text-xl">C</span>
-              </div>
+              <Image src="/logo.png" alt="Chatisha" width={40} height={40} className="h-10 w-auto" />
               <span className="text-xl font-heading font-bold">
                 <span className="text-white">Chat</span>
                 <span className="text-primary-400">isha</span>
@@ -151,14 +150,22 @@ export function Footer() {
                 </a>
               ))}
             </div>
-            <div className="mt-4">
+            <div className="mt-4 space-y-1">
               <a
                 href="https://wa.me/255765111131"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors"
+                className="block text-primary-400 hover:text-primary-300 text-sm font-medium transition-colors"
               >
                 +255 765 111 131
+              </a>
+              <a
+                href="https://www.chatisha.africa"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-slate-400 hover:text-white text-sm transition-colors"
+              >
+                www.chatisha.africa
               </a>
             </div>
           </div>

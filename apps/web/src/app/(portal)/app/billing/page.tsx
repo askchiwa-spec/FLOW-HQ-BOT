@@ -79,11 +79,11 @@ export default function BillingPage() {
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="bg-dark-700/50 rounded-xl p-4">
               <p className="text-xs text-slate-400 mb-1">Setup Fee (one-time)</p>
-              <p className="text-xl font-bold text-white">{formatTZS(350000)}</p>
+              <p className="text-xl font-bold text-white">{formatTZS(200000)}</p>
             </div>
             <div className="bg-dark-700/50 rounded-xl p-4">
               <p className="text-xs text-slate-400 mb-1">Monthly Subscription</p>
-              <p className="text-xl font-bold text-white">{formatTZS(100000)}<span className="text-sm font-normal text-slate-400">/mo</span></p>
+              <p className="text-xl font-bold text-white">{formatTZS(80000)}<span className="text-sm font-normal text-slate-400">/mo</span></p>
             </div>
           </div>
         </motion.div>
