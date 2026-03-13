@@ -17,7 +17,8 @@ const TEMPLATE_LABELS: Record<string, { label: string; icon: string }> = {
   HEALTHCARE: { label: 'Clinic & Healthcare', icon: '🏥' },
   ECOMMERCE: { label: 'Shop & E-Commerce', icon: '🛒' },
   BOOKING: { label: 'Booking & Appointments', icon: '📅' },
-  SUPPORT: { label: 'Customer Support', icon: '💬' },
+  SUPPORT: { label: 'General Support', icon: '💬' },
+  REAL_ESTATE: { label: 'Real Estate', icon: '🏠' },
 };
 
 const LANGUAGE_OPTIONS = [

@@ -152,6 +152,7 @@ export default function OnboardingPage() {
                 { value: 'HEALTHCARE', label: 'Clinic & Healthcare', icon: '🏥', desc: 'Patient appointments & reminders' },
                 { value: 'ECOMMERCE', label: 'Shop & E-Commerce', icon: '🛒', desc: 'Products, orders & delivery' },
                 { value: 'SUPPORT', label: 'General Support', icon: '💬', desc: 'FAQ, enquiries & customer service' },
+                { value: 'REAL_ESTATE', label: 'Real Estate', icon: '🏠', desc: 'Property listings & viewing bookings' },
               ].map((option) => (
                 <button
                   key={option.value}
