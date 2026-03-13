@@ -7,9 +7,11 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '512M',
+      cwd: '/var/www/flowhq',
       env: {
         NODE_ENV: 'production',
         PORT: 3100,
+        PROJECT_ROOT: '/var/www/flowhq',
       },
       log_file: './logs/control-plane.log',
       out_file: './logs/control-plane-out.log',
