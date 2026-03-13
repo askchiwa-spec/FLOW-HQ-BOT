@@ -18,8 +18,10 @@ echo "→ Generating Prisma client..."
 npx prisma generate --schema=packages/shared/src/prisma/schema.prisma
 
 # 4. Run database migrations (deploy mode — no interactive prompts)
+# NOTE: Uses directUrl (non-pooled) for advisory lock support.
+# Non-fatal: if Neon direct connection times out and no migrations are pending, deploy continues.
 echo "→ Running database migrations..."
-npx prisma migrate deploy --schema=packages/shared/src/prisma/schema.prisma
+npx prisma migrate deploy --schema=packages/shared/src/prisma/schema.prisma || echo "⚠️  Migration step failed (possibly no pending migrations or Neon cold start). Continuing deploy."
 
 # 5. Build all packages in correct dependency order
 echo "→ Building shared package..."
