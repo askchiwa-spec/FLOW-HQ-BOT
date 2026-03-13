@@ -5,65 +5,65 @@ import { startWorker, stopWorker, restartWorker, isWorkerRunning } from '../prov
 const router = Router();
 const prisma = new PrismaClient();
 
-const STALE_THRESHOLD_MINUTES = parseInt(process.env.STALE_THRESHOLD_MINUTES || '2');
+const STALE_THRESHOLD_MINUTES = parseInt(process.env.STALE_THRESHOLD_MINUTES || '5');
 
 router.get('/', (req: Request, res: Response) => {
   res.redirect('/admin/tenants');
 });
 
 /**
- * Mark stale workers as ERROR
- * Called periodically to detect workers that haven't sent heartbeats
+ * Auto-restart stale workers (no heartbeat for STALE_THRESHOLD_MINUTES)
+ * Called periodically by the control plane
  */
 export async function markStaleWorkers(): Promise<void> {
   try {
     const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_MINUTES * 60 * 1000);
-    
+
     const staleWorkers = await prisma.workerProcess.findMany({
       where: {
         status: 'RUNNING',
         tenant: {
           whatsapp_session: {
-            last_seen_at: {
-              lt: staleThreshold
-            }
+            last_seen_at: { lt: staleThreshold }
           }
         }
       },
       include: {
-        tenant: {
-          include: {
-            whatsapp_session: true
-          }
-        }
+        tenant: { include: { whatsapp_session: true } }
       }
     });
-    
+
     for (const worker of staleWorkers) {
-      logger.warn({ 
-        tenantId: worker.tenant_id, 
-        lastSeen: worker.tenant.whatsapp_session?.last_seen_at 
-      }, 'Marking stale worker as ERROR');
-      
-      await prisma.workerProcess.update({
-        where: { id: worker.id },
-        data: {
-          status: 'ERROR',
-          last_error: `Worker marked STALE: No heartbeat for ${STALE_THRESHOLD_MINUTES}+ minutes`
+      logger.warn({
+        tenantId: worker.tenant_id,
+        lastSeen: worker.tenant.whatsapp_session?.last_seen_at
+      }, 'Stale worker detected — auto-restarting');
+
+      try {
+        const result = await restartWorker(worker.tenant_id, worker.pm2_name, prisma);
+        if (result.success) {
+          logger.info({ tenantId: worker.tenant_id }, 'Stale worker auto-restarted successfully');
+        } else {
+          logger.error({ tenantId: worker.tenant_id, error: result.error }, 'Stale worker auto-restart failed');
         }
-      });
-      
-      await prisma.tenant.update({
-        where: { id: worker.tenant_id },
-        data: { status: 'ERROR' }
-      });
+      } catch (restartErr) {
+        logger.error({ tenantId: worker.tenant_id, error: restartErr }, 'Stale worker restart threw');
+        await prisma.workerProcess.update({
+          where: { id: worker.id },
+          data: { status: 'ERROR', last_error: `STALE: No heartbeat ${STALE_THRESHOLD_MINUTES}+ min — auto-restart failed` }
+        }).catch(() => {});
+        await prisma.tenant.update({
+          where: { id: worker.tenant_id },
+          data: { status: 'ERROR' }
+        }).catch(() => {});
+      }
     }
-    
+
     if (staleWorkers.length > 0) {
-      logger.info(`Marked ${staleWorkers.length} stale workers as ERROR`);
+      logger.info(`Auto-restarted ${staleWorkers.length} stale workers`);
     }
   } catch (error) {
-    logger.error('Error marking stale workers:', error);
+    logger.error('Error in stale worker check:', error);
   }
 }
 

@@ -25,6 +25,11 @@ function writeEcosystemConfig(pm2Name: string, tenantId: string, sessionsPath: s
   apps: [{
     name: ${JSON.stringify(pm2Name)},
     script: ${JSON.stringify(getWorkerScriptPath())},
+    autorestart: true,
+    max_memory_restart: '400M',
+    exp_backoff_restart_delay: 5000,
+    max_restarts: 20,
+    min_uptime: '15000',
     env: {
       TENANT_ID: ${JSON.stringify(tenantId)},
       SESSIONS_PATH: ${JSON.stringify(sessionsPath)},

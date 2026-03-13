@@ -46,18 +46,15 @@ export class WhatsAppBot {
         await this.client.initialize();
       },
       async () => {
-        this.logger.error('Max reconnect attempts reached, marking as ERROR');
-        await this.prisma.tenant.update({
-          where: { id: this.tenantId },
-          data: { status: 'ERROR' }
-        });
-        await this.prisma.workerProcess.update({
-          where: { tenant_id: this.tenantId },
-          data: {
-            status: 'ERROR',
-            last_error: 'Max reconnect attempts reached'
-          }
-        });
+        this.logger.error('Max reconnect attempts reached — PM2 will restart the process');
+        // Exit so PM2 restarts with a clean state (exp_backoff_restart_delay prevents rapid loops)
+        process.exit(1);
+      },
+      {
+        initialDelayMs: 5000,   // 5s first retry
+        maxDelayMs: 300000,     // cap at 5 min between retries
+        maxAttempts: 50,        // ~4h of retrying before giving up and letting PM2 restart
+        backoffMultiplier: 2,
       }
     );
 
