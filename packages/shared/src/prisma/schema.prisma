@@ -163,7 +163,7 @@ model WorkerProcess {
 model User {
   id            String    @id @default(uuid())
   tenant_id     String?   @unique
-  tenant        Tenant?   @relation(fields: [tenant_id], references: [id])
+  tenant        Tenant?   @relation(fields: [tenant_id], references: [id], onDelete: SetNull)
   name          String
   email         String    @unique
   emailVerified DateTime?
@@ -224,9 +224,9 @@ model VerificationToken {
 model SetupRequest {
   id              String             @id @default(uuid())
   tenant_id       String
-  tenant          Tenant             @relation(fields: [tenant_id], references: [id])
+  tenant          Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
   user_id         String
-  user            User               @relation(fields: [user_id], references: [id])
+  user            User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
   template_type   TemplateType
   whatsapp_number String
   status          SetupRequestStatus @default(SUBMITTED)
