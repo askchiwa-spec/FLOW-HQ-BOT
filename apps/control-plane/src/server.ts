@@ -45,8 +45,43 @@ app.use(express.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', async (_req, res) => {
+  const start = Date.now();
+  const checks: Record<string, { status: string; detail?: string }> = {};
+
+  // 1. Database ping
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.database = { status: 'ok' };
+  } catch (err) {
+    checks.database = { status: 'error', detail: (err as Error).message };
+  }
+
+  // 2. Worker summary
+  try {
+    const [total, running, error] = await Promise.all([
+      prisma.workerProcess.count(),
+      prisma.workerProcess.count({ where: { status: 'RUNNING' } }),
+      prisma.workerProcess.count({ where: { status: 'ERROR' } }),
+    ]);
+    checks.workers = {
+      status: error > 0 ? 'degraded' : 'ok',
+      detail: `${running}/${total} running, ${error} in error`,
+    };
+  } catch (err) {
+    checks.workers = { status: 'error', detail: (err as Error).message };
+  }
+
+  const allOk = Object.values(checks).every((c) => c.status === 'ok');
+  const anyError = Object.values(checks).some((c) => c.status === 'error');
+
+  const httpStatus = anyError ? 503 : 200;
+  res.status(httpStatus).json({
+    status: anyError ? 'error' : allOk ? 'ok' : 'degraded',
+    timestamp: new Date().toISOString(),
+    latencyMs: Date.now() - start,
+    checks,
+  });
 });
 
 app.use('/admin', authMiddleware, adminRoutes);
