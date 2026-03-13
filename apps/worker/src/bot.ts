@@ -8,15 +8,20 @@ import { RateLimiter } from './utils/rate-limiter';
 import { ChatQueueManager } from './utils/chat-queue';
 import { MessageDeduplicator } from './utils/dedup';
 import { ReconnectManager } from './utils/reconnect';
+import { MessagingAdapter } from './messaging/interface';
+import { WwebjsAdapter } from './messaging/wwebjs';
+import { logInbound, logOutbound } from './audit';
+import { upsertCustomer } from './crm';
 
 export class WhatsAppBot {
   private client: Client;
+  private adapter: MessagingAdapter;
   private prisma: PrismaClient;
   private logger: ReturnType<typeof createLogger>;
   private tenantId: string;
   private config: AIConfig | null = null;
   private isReady: boolean = false;
-  
+
   // Hardening components
   private rateLimiter: RateLimiter;
   private chatQueue: ChatQueueManager;
@@ -29,7 +34,7 @@ export class WhatsAppBot {
     this.tenantId = tenantId;
     this.prisma = new PrismaClient();
     this.logger = createLogger(tenantId);
-    
+
     // Initialize hardening components
     const maxRepliesPerMinute = parseInt(process.env.RATE_LIMIT_MAX_PER_MINUTE || '10');
     this.rateLimiter = new RateLimiter({ maxRequests: maxRepliesPerMinute, windowMs: 60000 });
@@ -57,7 +62,7 @@ export class WhatsAppBot {
     );
 
     const sessionPath = path.join(sessionsPath, tenantId);
-    
+
     if (!fs.existsSync(sessionPath)) {
       fs.mkdirSync(sessionPath, { recursive: true });
     }
@@ -71,6 +76,9 @@ export class WhatsAppBot {
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       }
     });
+
+    // Messaging adapter — swap this line to migrate to Cloud API
+    this.adapter = new WwebjsAdapter(this.client);
 
     this.setupEventHandlers();
   }
@@ -117,7 +125,7 @@ export class WhatsAppBot {
 
       // Reset reconnect manager on successful connection
       this.reconnectManager.reset();
-      
+
       try {
         await this.prisma.whatsAppSession.update({
           where: { tenant_id: this.tenantId },
@@ -127,12 +135,12 @@ export class WhatsAppBot {
             last_seen_at: new Date()
           }
         });
-        
+
         await this.prisma.tenant.update({
           where: { id: this.tenantId },
           data: { status: 'ACTIVE' }
         });
-        
+
         await this.prisma.workerProcess.update({
           where: { tenant_id: this.tenantId },
           data: {
@@ -140,15 +148,15 @@ export class WhatsAppBot {
             last_error: null   // B1: Clear any DISCONNECTED/BAN_SIGNAL alert on successful reconnect
           }
         });
-        
+
         // Update setup request to ACTIVE if it exists and is APPROVED
         const setupRequest = await this.prisma.setupRequest.findFirst({
-          where: { 
+          where: {
             tenant_id: this.tenantId,
             status: 'APPROVED'
           }
         });
-        
+
         if (setupRequest) {
           await this.prisma.setupRequest.update({
             where: { id: setupRequest.id },
@@ -156,9 +164,9 @@ export class WhatsAppBot {
           });
           this.logger.info({ setupRequestId: setupRequest.id }, 'Setup request marked as ACTIVE');
         }
-        
+
         await this.loadConfig();
-        
+
         // Start heartbeat
         this.startHeartbeat();
       } catch (error) {
@@ -174,14 +182,14 @@ export class WhatsAppBot {
 
       // Skip group messages — only respond to 1-on-1 chats
       if (msg.from.endsWith('@g.us')) return;
-      
+
       // Check for duplicates
       if (this.deduplicator.isDuplicate(msg.id.id)) {
         this.logger.warn({ msgId: msg.id.id }, 'Duplicate message detected, skipping');
         return;
       }
       this.deduplicator.markSeen(msg.id.id);
-      
+
       // Enqueue message for sequential processing per chat
       try {
         await this.chatQueue.enqueue(msg.from, async () => {
@@ -191,7 +199,7 @@ export class WhatsAppBot {
         if ((error as Error).message.includes('QUEUE_FULL')) {
           this.logger.warn({ chatId: msg.from }, 'Queue full, sending wait message');
           try {
-            await msg.reply('Tafadhali subiri... / Please wait...');
+            await this.adapter.sendMessage(msg.from, 'Tafadhali subiri... / Please wait...');
           } catch (replyError) {
             this.logger.error('Failed to send wait message:', replyError);
           }
@@ -204,16 +212,16 @@ export class WhatsAppBot {
     this.client.on('disconnected', async (reason) => {
       this.logger.warn('WhatsApp client disconnected:', reason);
       this.isReady = false;
-      
+
       // Stop heartbeat
       this.stopHeartbeat();
-      
+
       try {
         await this.prisma.whatsAppSession.update({
           where: { tenant_id: this.tenantId },
           data: { state: 'DISCONNECTED' }
         });
-        
+
         await this.prisma.tenant.update({
           where: { id: this.tenantId },
           data: { status: 'ERROR' }
@@ -307,7 +315,7 @@ export class WhatsAppBot {
         const exitMsg = lang === 'SW'
           ? `Asante ${msg.from.split('@')[0]}! Umesimamisha mazungumzo na bot wa ${bizName}. Tuma ujumbe wowote kuendelea tena. 👋`
           : `Thanks! You have stopped the ${bizName} bot. Send any message to start again. 👋`;
-        await msg.reply(exitMsg);
+        await this.adapter.sendMessage(msg.from, exitMsg);
         this.logger.info({ contact: msg.from }, 'Contact opted out — bot paused for this contact');
         return;
       }
@@ -350,7 +358,7 @@ export class WhatsAppBot {
           const closedMsg = lang === 'SW'
             ? `Samahani, ${bizName} ${dayHours ? `imefungwa sasa. Tunafungua ${hoursStr}` : 'imefungwa leo'}. Tuma ujumbe tena wakati huo! 🙏`
             : `Sorry, ${bizName} is ${dayHours ? `currently closed. Today's hours are ${hoursStr}` : 'closed today'}. Send us a message during business hours! 🙏`;
-          await msg.reply(closedMsg);
+          await this.adapter.sendMessage(msg.from, closedMsg);
           this.logger.info({ contact: msg.from }, 'Outside business hours — closed message sent');
           return;
         }
@@ -362,31 +370,27 @@ export class WhatsAppBot {
         const triggerMsg = lang === 'SW'
           ? `Habari! Karibu kwa *${bizName}* 🤝\nNiko hapa kukusaidia. Niambie unachohitaji!`
           : `Hello! Welcome to *${bizName}* 🤝\nI'm here to help. What can I do for you today?`;
-        await msg.reply(triggerMsg);
+        await this.adapter.sendMessage(msg.from, triggerMsg);
         // Small pause then continue so the AI also processes their first message
         await new Promise((r) => setTimeout(r, 800));
       }
-      
+
       // Log incoming message
-      await this.prisma.messageLog.create({
-        data: {
-          tenant_id: this.tenantId,
-          direction: 'IN',
-          from_number: msg.from,
-          to_number: msg.to || 'me',
-          message_text: msg.body || '',
-          wa_message_id: msg.id.id
-        }
+      await logInbound(this.prisma, this.tenantId, {
+        from: msg.from,
+        to: msg.to || 'me',
+        body: msg.body || '',
+        waMessageId: msg.id.id,
       });
 
       // Check rate limit before responding
       const rateLimitStatus = this.rateLimiter.checkLimit(this.tenantId);
-      
+
       if (!rateLimitStatus.allowed) {
         if (!rateLimitStatus.warningSent) {
           this.logger.warn({ tenantId: this.tenantId }, 'Rate limit exceeded, sending warning');
           try {
-            await msg.reply('Tafadhali pole pole... / Please slow down...');
+            await this.adapter.sendMessage(msg.from, 'Tafadhali pole pole... / Please slow down...');
           } catch (replyError) {
             this.logger.error('Failed to send rate limit warning:', replyError);
           }
@@ -409,7 +413,7 @@ export class WhatsAppBot {
           const emergencyMsg = lang === 'SW'
             ? `⚠️ DHARURA: Piga simu ya dharura SASA HIVI — 112 au 999. Usitegemee msaada wa mtandao katika hali ya hatari ya maisha! 🚨`
             : `⚠️ EMERGENCY: Call emergency services RIGHT NOW — 112 or 999. Do not wait for an online response in a life-threatening situation! 🚨`;
-          await msg.reply(emergencyMsg);
+          await this.adapter.sendMessage(msg.from, emergencyMsg);
           this.logger.warn({ contact: msg.from }, 'EMERGENCY KEYWORD DETECTED — sent emergency response, skipping AI');
           return;
         }
@@ -421,12 +425,7 @@ export class WhatsAppBot {
       }
 
       // A2: Show typing indicator before AI call — user sees it during the full processing time
-      try {
-        const chat = await msg.getChat();
-        await chat.sendStateTyping();
-      } catch {
-        // Non-critical — continue if typing indicator fails
-      }
+      await this.adapter.sendTypingIndicator(msg.from);
 
       let replyText: string;
       let handoff = false;
@@ -453,15 +452,14 @@ export class WhatsAppBot {
       }
 
       // A1: Human-like delay — proportional to reply length (30ms/char, capped 800ms–2500ms)
-      // Combined with the AI API latency above, total "typing" time feels natural on WhatsApp
       const typingDelayMs = Math.min(Math.max(replyText.length * 30, 800), 2500);
       await new Promise((r) => setTimeout(r, typingDelayMs));
 
       // Append Chatisha signature for organic growth
       const signedReply = replyText + '\n\n_Powered by Chatisha_';
 
-      // Send reply
-      const reply = await msg.reply(signedReply);
+      // Send reply via adapter — swap adapter to migrate to Cloud API
+      const { messageId } = await this.adapter.sendMessage(msg.from, signedReply);
 
       // If handoff needed, notify the business owner (log prominently)
       if (handoff) {
@@ -471,71 +469,69 @@ export class WhatsAppBot {
       this.logger.info(`Sent reply to ${msg.from}: ${replyText.substring(0, 80)}`);
 
       // Log outgoing message
-      await this.prisma.messageLog.create({
-        data: {
-          tenant_id: this.tenantId,
-          direction: 'OUT',
-          from_number: msg.to || 'me',
-          to_number: msg.from,
-          message_text: signedReply,
-          wa_message_id: reply.id.id
-        }
+      await logOutbound(this.prisma, this.tenantId, {
+        from: msg.to || 'me',
+        to: msg.from,
+        text: signedReply,
+        messageId,
       });
 
       // Mini CRM: upsert customer record
-      await this.upsertCustomer(msg.from, body, replyText);
+      if (this.config) {
+        await upsertCustomer(this.prisma, this.tenantId, msg.from, this.config.templateType, body, replyText);
+      }
 
       // Update last seen
       await this.prisma.whatsAppSession.update({
         where: { tenant_id: this.tenantId },
         data: { last_seen_at: new Date() }
       });
-      
+
     } catch (error) {
       // Global error boundary - never crash the worker
       this.logger.error('Error handling message:', error);
-      
+
       // Log error to WorkerProcess
       try {
         await this.prisma.workerProcess.update({
           where: { tenant_id: this.tenantId },
-          data: { 
+          data: {
             last_error: `Message handling error: ${error instanceof Error ? error.message : String(error)}`.substring(0, 1000)
           }
         });
       } catch (dbError) {
         this.logger.error('Failed to log error to database:', dbError);
       }
-      
+
       // Continue processing other messages - don't throw
     }
   }
 
   private startHeartbeat(): void {
     const heartbeatIntervalMs = parseInt(process.env.HEARTBEAT_INTERVAL_MS || '30000');
-    
+
     this.heartbeatInterval = setInterval(async () => {
       try {
         const now = new Date();
-        
+
         // Update session last_seen_at
         await this.prisma.whatsAppSession.update({
           where: { tenant_id: this.tenantId },
           data: { last_seen_at: now }
         });
-        
+
         // Update worker status
         await this.prisma.workerProcess.update({
           where: { tenant_id: this.tenantId },
           data: { status: 'RUNNING' }
         });
-        
+
         this.logger.debug('Heartbeat sent');
       } catch (error) {
         this.logger.error('Heartbeat failed:', error);
       }
     }, heartbeatIntervalMs);
-    
+
     this.logger.info(`Heartbeat started (${heartbeatIntervalMs}ms interval)`);
   }
 
@@ -547,96 +543,39 @@ export class WhatsAppBot {
     }
   }
 
-  private async upsertCustomer(phone: string, userMessage: string, botReply: string): Promise<void> {
-    if (!this.config) return;
-    try {
-      const requestTypeMap: Record<string, string> = {
-        SALON: 'APPOINTMENT', BOOKING: 'APPOINTMENT', HEALTHCARE: 'APPOINTMENT',
-        RESTAURANT: 'ORDER', ECOMMERCE: 'ORDER',
-        HOTEL: 'ROOM_INQUIRY', REAL_ESTATE: 'SERVICE_INQUIRY', SUPPORT: 'GENERAL',
-      };
-      const requestType = requestTypeMap[this.config.templateType] ?? 'GENERAL';
-
-      // Detect if last bot message asked for the customer's name
-      const lastBotMsg = await this.prisma.conversationMessage.findFirst({
-        where: { tenant_id: this.tenantId, contact: phone, role: 'assistant' },
-        orderBy: { created_at: 'desc' },
-      });
-      const askedForName = lastBotMsg && (
-        lastBotMsg.content.toLowerCase().includes('share your name') ||
-        lastBotMsg.content.toLowerCase().includes('your full name') ||
-        lastBotMsg.content.toLowerCase().includes('jina lako') ||
-        lastBotMsg.content.toLowerCase().includes('tupe jina')
-      );
-      const isLikelyName = userMessage.length > 1 && userMessage.length < 60 &&
-        !/^\d+$/.test(userMessage) && !userMessage.includes('@') && !userMessage.includes('http');
-      const nameToSave = (askedForName && isLikelyName) ? userMessage.trim() : undefined;
-
-      // Detect lead status from bot reply
-      const replyLower = botReply.toLowerCase();
-      let leadStatus: string | undefined;
-      if (replyLower.includes('appointment is confirmed') || replyLower.includes('booking is confirmed') ||
-          replyLower.includes('imewekwa') || replyLower.includes('imethibitishwa')) {
-        leadStatus = 'CONFIRMED';
-      } else if (replyLower.includes('order has been received') || replyLower.includes('request has been received') ||
-                 replyLower.includes('imepokelewa')) {
-        leadStatus = 'PENDING';
-      }
-
-      await (this.prisma as any).customer.upsert({
-        where: { tenant_id_phone: { tenant_id: this.tenantId, phone } },
-        create: {
-          tenant_id: this.tenantId,
-          phone,
-          name: nameToSave,
-          request_type: requestType,
-          lead_status: leadStatus ?? 'NEW',
-          last_interaction: new Date(),
-        },
-        update: {
-          last_interaction: new Date(),
-          ...(nameToSave ? { name: nameToSave } : {}),
-          ...(leadStatus ? { lead_status: leadStatus } : {}),
-        },
-      });
-    } catch (err) {
-      this.logger.error('Failed to upsert customer:', err);
-    }
-  }
-
   async start() {
     this.logger.info('Starting WhatsApp bot...');
-    
+
     try {
       await this.prisma.$connect();
       this.logger.info('Connected to database');
-      
+
       await this.loadConfig();
       await this.client.initialize();
-      
+
     } catch (error) {
       this.logger.error('Failed to start bot:', error);
-      
+
       await this.prisma.workerProcess.update({
         where: { tenant_id: this.tenantId },
-        data: { 
+        data: {
           status: 'ERROR',
           last_error: String(error)
         }
       });
-      
+
       throw error;
     }
   }
 
   async stop() {
     this.logger.info('Stopping WhatsApp bot...');
-    
+
     // Stop all components
     this.stopHeartbeat();
     this.reconnectManager.stop();
     this.chatQueue.clearAll();
-    
+
     try {
       await this.client.destroy();
       await this.prisma.$disconnect();
