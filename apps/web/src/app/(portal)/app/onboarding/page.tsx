@@ -151,6 +151,7 @@ export default function OnboardingPage() {
                 { value: 'HOTEL', label: 'Hotel & Lodge', icon: '🏨', desc: 'Room inquiries & booking requests' },
                 { value: 'HEALTHCARE', label: 'Clinic & Healthcare', icon: '🏥', desc: 'Patient appointments & reminders' },
                 { value: 'ECOMMERCE', label: 'Shop & E-Commerce', icon: '🛒', desc: 'Products, orders & delivery' },
+                { value: 'SUPPORT', label: 'General Support', icon: '💬', desc: 'FAQ, enquiries & customer service' },
               ].map((option) => (
                 <button
                   key={option.value}
