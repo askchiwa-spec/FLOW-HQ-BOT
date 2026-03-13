@@ -183,8 +183,10 @@ export class WhatsAppBot {
       // Skip group messages — only respond to 1-on-1 chats
       if (msg.from.endsWith('@g.us')) return;
 
-      // Skip broadcast/status messages
+      // Skip broadcast/status messages (double guard: address suffix + isStatus flag)
       if (msg.from.endsWith('@broadcast')) return;
+      if ((msg as any).isStatus) return;
+      if (msg.from === 'status@broadcast') return;
 
       // Check for duplicates
       if (this.deduplicator.isDuplicate(msg.id.id)) {
@@ -289,6 +291,8 @@ export class WhatsAppBot {
   private readonly EXIT_KEYWORDS = [
     'stop', 'quit', 'exit', 'unsubscribe', 'end', 'cancel', 'bye', 'goodbye',
     'acha', 'simama', 'ondoa', 'imaliza', 'kwaheri', 'tutaonana',
+    // Swahili thank-you / closure phrases
+    'asante', 'asante sana', 'nakushukuru', 'nashukuri', 'baadaye', 'imetosha', 'nimemaliza',
   ];
 
   // Track contacts who have opted out this session (reset on restart)
