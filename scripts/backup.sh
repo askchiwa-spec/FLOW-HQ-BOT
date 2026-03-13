@@ -26,8 +26,11 @@ mkdir -p "$BACKUP_DIR"
 
 echo "[$(date)] Starting backup → $BACKUP_DIR/$FILENAME"
 
+# Use pg_dump v17 to match Neon server version
+PG_DUMP="/usr/lib/postgresql/17/bin/pg_dump"
+
 # Dump and compress
-pg_dump "$DATABASE_URL" | gzip > "$BACKUP_DIR/$FILENAME"
+"$PG_DUMP" "$DATABASE_URL" | gzip > "$BACKUP_DIR/$FILENAME"
 
 SIZE=$(du -sh "$BACKUP_DIR/$FILENAME" | cut -f1)
 echo "[$(date)] Backup complete. Size: $SIZE"
