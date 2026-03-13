@@ -28,6 +28,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/chatisha_ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/chatisha_ci
       NODE_ENV: test
 
     steps:
