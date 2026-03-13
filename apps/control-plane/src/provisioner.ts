@@ -12,9 +12,9 @@ const execAsync = promisify(exec);
 
 // Resolve pm2 binary from the same bin dir as the running node process (works with NVM)
 const PM2_BIN = path.join(path.dirname(process.execPath), 'pm2');
-// PROJECT_ROOT can be overridden via env var — required on VPS (set in .env)
-const PROJECT_ROOT = process.env.PROJECT_ROOT || '/home/baamrecs/flowhq-bot';
-const WORKER_SCRIPT_PATH = path.join(PROJECT_ROOT, 'apps', 'worker', 'dist', 'worker.js');
+// Read at call time so dotenv has already run (module-level constants load before dotenv)
+function getProjectRoot() { return process.env.PROJECT_ROOT || '/home/baamrecs/flowhq-bot'; }
+function getWorkerScriptPath() { return path.join(getProjectRoot(), 'apps', 'worker', 'dist', 'worker.js'); }
 
 function writeEcosystemConfig(pm2Name: string, tenantId: string, sessionsPath: string): string {
   if (!fs.existsSync(sessionsPath)) {
@@ -24,7 +24,7 @@ function writeEcosystemConfig(pm2Name: string, tenantId: string, sessionsPath: s
   const content = `module.exports = {
   apps: [{
     name: ${JSON.stringify(pm2Name)},
-    script: ${JSON.stringify(WORKER_SCRIPT_PATH)},
+    script: ${JSON.stringify(getWorkerScriptPath())},
     env: {
       TENANT_ID: ${JSON.stringify(tenantId)},
       SESSIONS_PATH: ${JSON.stringify(sessionsPath)},
@@ -59,7 +59,7 @@ export async function startWorker(
   pm2Name: string,
   prisma: PrismaClient
 ): Promise<{ success: boolean; error?: string }> {
-  const sessionsPath = path.join(PROJECT_ROOT, 'sessions', tenantId);
+  const sessionsPath = path.join(getProjectRoot(), 'sessions', tenantId);
   const ecosystemPath = writeEcosystemConfig(pm2Name, tenantId, sessionsPath);
 
   const alreadyRunning = await isWorkerRunning(pm2Name);
