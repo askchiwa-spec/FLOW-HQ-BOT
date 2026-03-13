@@ -183,6 +183,9 @@ export class WhatsAppBot {
       // Skip group messages — only respond to 1-on-1 chats
       if (msg.from.endsWith('@g.us')) return;
 
+      // Skip broadcast/status messages
+      if (msg.from.endsWith('@broadcast')) return;
+
       // Check for duplicates
       if (this.deduplicator.isDuplicate(msg.id.id)) {
         this.logger.warn({ msgId: msg.id.id }, 'Duplicate message detected, skipping');
@@ -291,6 +294,9 @@ export class WhatsAppBot {
   // Track contacts who have opted out this session (reset on restart)
   private optedOut = new Set<string>();
 
+  // Track contacts waiting for human handoff (persisted in DB)
+  private handoffContacts = new Set<string>();
+
   // Emergency keywords — bypass AI entirely for immediate life-safety response (healthcare template)
   private readonly EMERGENCY_KEYWORDS = [
     'emergency', 'dying', 'unconscious', 'accident', 'bleeding', 'fire', 'overdose',
@@ -320,13 +326,17 @@ export class WhatsAppBot {
         return;
       }
 
-      // C2 + C1: Single parallel DB round-trip — opt-out status + first-message check
-      const [priorMsgCount, optOutRecord] = await Promise.all([
+      // C2 + C1: Single parallel DB round-trip — opt-out status + first-message check + handoff check
+      const [priorMsgCount, optOutRecord, handoffRecord] = await Promise.all([
         this.prisma.conversationMessage.count({
-          where: { tenant_id: this.tenantId, contact: msg.from, NOT: { role: 'opt_out' } },
+          where: { tenant_id: this.tenantId, contact: msg.from, NOT: { role: { in: ['opt_out', 'handoff'] } } },
         }),
         this.prisma.conversationMessage.findFirst({
           where: { tenant_id: this.tenantId, contact: msg.from, role: 'opt_out' },
+          select: { id: true },
+        }),
+        this.prisma.conversationMessage.findFirst({
+          where: { tenant_id: this.tenantId, contact: msg.from, role: 'handoff' },
           select: { id: true },
         }),
       ]);
@@ -340,6 +350,16 @@ export class WhatsAppBot {
           }).catch(() => {});
         }
         // fall through — treat as fresh start
+      }
+
+      // Handoff check — contact is waiting for a human, bot stays silent
+      if (this.handoffContacts.has(msg.from) || handoffRecord) {
+        this.handoffContacts.add(msg.from);
+        const waitMsg = lang === 'SW'
+          ? `Ombi lako limepokelewa. Mtaalamu wetu atakuwasiliana nawe hivi karibuni. 🙏`
+          : `Your request has been received. Our team will reach out to you shortly. 🙏`;
+        await this.adapter.sendMessage(msg.from, waitMsg);
+        return;
       }
 
       // D1: Business hours check — reply "closed" and skip AI if outside configured hours
@@ -461,8 +481,12 @@ export class WhatsAppBot {
       // Send reply via adapter — swap adapter to migrate to Cloud API
       const { messageId } = await this.adapter.sendMessage(msg.from, signedReply);
 
-      // If handoff needed, notify the business owner (log prominently)
+      // If handoff needed, persist state and stop bot from replying further
       if (handoff) {
+        this.handoffContacts.add(msg.from);
+        await this.prisma.conversationMessage.create({
+          data: { tenant_id: this.tenantId, contact: msg.from, role: 'handoff', content: 'HANDOFF_REQUESTED' }
+        }).catch(() => {});
         this.logger.warn({ contact: msg.from, tenantId: this.tenantId }, 'HUMAN HANDOFF REQUESTED — customer needs live support');
       }
 
