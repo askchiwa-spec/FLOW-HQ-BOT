@@ -33,7 +33,8 @@ export async function POST(req: Request) {
     const data = await res.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error calling control plane:', error);
-    return NextResponse.json({ error: 'Failed to submit setup request' }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Error calling control plane:', message);
+    return NextResponse.json({ error: 'Failed to submit setup request', detail: message }, { status: 500 });
   }
 }
