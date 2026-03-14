@@ -121,16 +121,36 @@ PM2 Workers
 
 ---
 
-## 5. New Client Checklist (Your Side)
+## 5. How Clients Log In
+
+**There is no password.** Clients log in using their Google account (Gmail) only.
+
+- Login page: `https://app.chatisha.com/auth/signin`
+- They click **"Sign in with Google"** and use their Gmail
+- No password to set, forget, or reset
+
+**Important:** When onboarding a new client, always ask:
+> "Which Gmail address will you use to access the portal?"
+
+This is the only thing that identifies them in the system. If they log in with the wrong Gmail, they will see an empty account.
+
+**What if a client doesn't have Gmail?**
+Ask them to create one — it's free and takes 2 minutes. All Android phones already have Gmail by default.
+
+---
+
+## 6. New Client Checklist (Your Side)
 
 ```
-□ Client signs up at app.chatisha.com
-□ You receive setup request notification
-□ Review: correct WhatsApp number? correct template?
+□ Ask client for their Gmail address before signup
+□ Client goes to app.chatisha.com → signs in with that Gmail
+□ Client fills setup form (business name, WhatsApp number, template, language)
+□ You receive setup request in admin dashboard
+□ Review: correct WhatsApp number? correct template? correct Gmail?
 □ Approve in admin dashboard
 □ Wait ~30 seconds for bot to start
 □ Send client their portal link: https://app.chatisha.com
-□ Client scans QR code
+□ Client logs in → goes to WhatsApp page → scans QR code
 □ Confirm bot status changes to ACTIVE
 □ Send welcome message to client on WhatsApp
 □ Collect 350,000 TZS setup fee
@@ -139,7 +159,7 @@ PM2 Workers
 
 ---
 
-## 6. Monthly Operations
+## 7. Monthly Operations
 
 ```
 WEEK 1
@@ -163,7 +183,7 @@ WEEK 4
 
 ---
 
-## 7. Key Contacts & Links
+## 8. Key Contacts & Links
 
 | Resource | Link / Info |
 |----------|-------------|
