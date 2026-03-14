@@ -18,10 +18,27 @@ module.exports = {
       out_file: '/var/www/flowhq/logs/control-plane-out.log',
       error_file: '/var/www/flowhq/logs/control-plane-error.log',
     },
+    {
+      name: 'flowhq-web',
+      script: 'npm',
+      args: 'run start',
+      cwd: '/var/www/flowhq/apps/web',
+      instances: 1,
+      exec_mode: 'fork',
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '512M',
+      exp_backoff_restart_delay: 3000,
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3001,
+      },
+      out_file: '/var/www/flowhq/logs/web-out.log',
+      error_file: '/var/www/flowhq/logs/web-error.log',
+    },
   ],
 };
 
 // NOTE: Worker processes are NOT listed here.
 // They are spawned dynamically by the control-plane via PM2 API —
 // one PM2 process per active tenant WhatsApp session.
-// Web app (Next.js) runs on Vercel — not managed here.
