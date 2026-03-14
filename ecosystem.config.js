@@ -20,8 +20,8 @@ module.exports = {
     },
     {
       name: 'flowhq-web',
-      script: 'npm',
-      args: 'run start',
+      script: '/var/www/flowhq/node_modules/.bin/next',
+      args: 'start -p 3001',
       cwd: '/var/www/flowhq/apps/web',
       instances: 1,
       exec_mode: 'fork',
