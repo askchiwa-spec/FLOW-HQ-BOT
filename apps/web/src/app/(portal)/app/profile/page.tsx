@@ -33,6 +33,7 @@ export default function ProfilePage() {
     whatsappNumber: '',
     language: 'SW',
     templateType: '',
+    email: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
