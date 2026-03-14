@@ -118,7 +118,7 @@ router.post('/setup-request', portalAuthMiddleware, async (req: Request, res: Re
       },
     });
 
-    // Auto-approve: upsert so resubmissions update rather than create duplicate rows
+    // Upsert setup request with SUBMITTED status — admin must approve before worker starts
     const existing = await prisma.setupRequest.findFirst({
       where: { tenant_id: user.tenant.id },
       orderBy: { created_at: 'desc' },
@@ -127,7 +127,7 @@ router.post('/setup-request', portalAuthMiddleware, async (req: Request, res: Re
     const setupRequest = existing
       ? await prisma.setupRequest.update({
           where: { id: existing.id },
-          data: { template_type: templateType, whatsapp_number: whatsappNumber, status: 'APPROVED' },
+          data: { template_type: templateType, whatsapp_number: whatsappNumber, status: 'SUBMITTED' },
         })
       : await prisma.setupRequest.create({
           data: {
@@ -135,7 +135,7 @@ router.post('/setup-request', portalAuthMiddleware, async (req: Request, res: Re
             user_id: user.id,
             template_type: templateType,
             whatsapp_number: whatsappNumber,
-            status: 'APPROVED',
+            status: 'SUBMITTED',
           },
         });
 
@@ -149,18 +149,9 @@ router.post('/setup-request', portalAuthMiddleware, async (req: Request, res: Re
       },
     });
 
-    // Auto-provision: start the worker immediately
-    const pm2Name = user.tenant.worker_process?.pm2_name || `worker-${user.tenant.id.slice(0, 8)}`;
-    const provisionResult = await startWorker(user.tenant.id, pm2Name, prisma);
+    logger.info({ tenantId: user.tenant.id }, 'Setup request submitted — awaiting admin approval');
 
-    if (provisionResult.success) {
-      logger.info({ tenantId: user.tenant.id }, 'Worker auto-provisioned on setup request');
-    } else {
-      // Worker failed to start but setup request is saved — admin can retry via dashboard
-      logger.error({ tenantId: user.tenant.id, error: provisionResult.error }, 'Auto-provision failed');
-    }
-
-    res.status(201).json({ ...setupRequest, workerStarted: provisionResult.success });
+    res.status(201).json({ ...setupRequest, workerStarted: false });
   } catch (error) {
     logger.error('Error creating setup request:', error);
     res.status(500).json({ error: 'Failed to create setup request' });
