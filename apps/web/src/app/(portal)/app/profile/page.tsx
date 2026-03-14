@@ -8,6 +8,7 @@ interface ProfileData {
   whatsappNumber: string;
   language: string;
   templateType: string;
+  email: string;
 }
 
 const TEMPLATE_LABELS: Record<string, { label: string; icon: string }> = {
@@ -37,6 +38,11 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [emailEdit, setEmailEdit] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailSaved, setEmailSaved] = useState(false);
+  const [emailError, setEmailError] = useState('');
 
   useEffect(() => {
     fetch('/api/portal/me')
@@ -47,7 +53,9 @@ export default function ProfilePage() {
           whatsappNumber: data.tenant?.phone_number || '',
           language: data.tenant?.config?.language || 'SW',
           templateType: data.tenant?.config?.template_type || '',
+          email: data.user?.email || '',
         });
+        setNewEmail(data.user?.email || '');
       })
       .catch(() => setError('Failed to load profile'))
       .finally(() => setLoading(false));
@@ -81,6 +89,30 @@ export default function ProfilePage() {
       setError(err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEmailChange = async () => {
+    if (!newEmail || newEmail === profile.email) return;
+    setEmailSaving(true);
+    setEmailError('');
+    setEmailSaved(false);
+    try {
+      const res = await fetch('/api/portal/email', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update email');
+      setProfile({ ...profile, email: newEmail });
+      setEmailSaved(true);
+      setEmailEdit(false);
+      setTimeout(() => setEmailSaved(false), 4000);
+    } catch (err: any) {
+      setEmailError(err.message);
+    } finally {
+      setEmailSaving(false);
     }
   };
 
@@ -181,6 +213,59 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Login Email */}
+        <div className="bg-dark-800/50 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
+          <h2 className="text-lg font-semibold text-white mb-4">Login Email</h2>
+          <p className="text-sm text-slate-400 mb-4">
+            This is the Gmail address you use to sign in. If you change it, use the new Gmail next time you log in.
+          </p>
+          {!emailEdit ? (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-white text-sm">{profile.email}</span>
+              <button
+                type="button"
+                onClick={() => setEmailEdit(true)}
+                className="text-sm text-primary-400 hover:text-primary-300 transition-colors"
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-dark-700/50 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-primary-500/50 focus:ring-1 focus:ring-primary-500/50 transition-colors"
+                placeholder="newemail@gmail.com"
+              />
+              {emailError && (
+                <p className="text-xs text-red-400">{emailError}</p>
+              )}
+              {emailSaved && (
+                <p className="text-xs text-green-400">Email updated successfully!</p>
+              )}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleEmailChange}
+                  disabled={emailSaving}
+                  className="px-4 py-2 rounded-xl bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-medium transition-colors"
+                >
+                  {emailSaving ? 'Saving...' : 'Confirm Change'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmailEdit(false); setNewEmail(profile.email); setEmailError(''); }}
+                  className="px-4 py-2 rounded-xl bg-dark-700/50 border border-white/10 text-slate-400 text-sm hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Error / Success */}

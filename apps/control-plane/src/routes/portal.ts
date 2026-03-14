@@ -335,4 +335,37 @@ router.patch('/profile', portalAuthMiddleware, async (req: Request, res: Respons
   }
 });
 
+/**
+ * PATCH /portal/email
+ * Change the login email for the current user
+ */
+router.patch('/email', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const { newEmail } = req.body;
+    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      return res.status(400).json({ error: 'Invalid email address' });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email: newEmail } });
+    if (existing && existing.id !== user.id) {
+      return res.status(409).json({ error: 'Email already in use by another account' });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { email: newEmail },
+    });
+
+    logger.info({ userId: user.id, oldEmail: user.email, newEmail }, 'User email changed');
+
+    res.json({ success: true, email: newEmail });
+  } catch (error) {
+    logger.error('Error changing email:', error);
+    res.status(500).json({ error: 'Failed to update email' });
+  }
+});
+
 export default router;
