@@ -44,7 +44,13 @@ npm run build --workspace=@chatisha/web
 
 # 6. Reload PM2 processes (zero-downtime for control-plane and web)
 echo "→ Reloading PM2 processes..."
-pm2 reload ecosystem.config.js --update-env
+# Verify Next.js build exists before reloading web process
+if [ ! -f "apps/web/.next/BUILD_ID" ]; then
+  echo "⚠️  Next.js build missing — skipping web reload. Run: pm2 restart flowhq-web"
+  pm2 reload flowhq-control-plane --update-env
+else
+  pm2 reload ecosystem.config.js --update-env
+fi
 
 echo "=== Deploy complete ==="
 pm2 status
