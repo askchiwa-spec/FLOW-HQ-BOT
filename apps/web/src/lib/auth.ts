@@ -33,24 +33,28 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async session({ session, user }) {
       if (session.user) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: session.user.email! },
-          include: { 
-            tenant: {
-              include: {
-                setup_requests: {
-                  orderBy: { created_at: 'desc' },
-                  take: 1,
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            include: {
+              tenant: {
+                include: {
+                  setup_requests: {
+                    orderBy: { created_at: 'desc' },
+                    take: 1,
+                  },
                 },
               },
             },
-          },
-        });
-        
-        (session.user as any).id = dbUser?.id;
-        (session.user as any).tenantId = dbUser?.tenant_id;
-        (session.user as any).role = dbUser?.role;
-        (session.user as any).hasSetupRequest = dbUser?.tenant?.setup_requests && dbUser.tenant.setup_requests.length > 0;
+          });
+
+          (session.user as any).id = dbUser?.id;
+          (session.user as any).tenantId = dbUser?.tenant_id;
+          (session.user as any).role = dbUser?.role;
+          (session.user as any).hasSetupRequest = dbUser?.tenant?.setup_requests && dbUser.tenant.setup_requests.length > 0;
+        } catch {
+          // Non-fatal — session still valid without extended fields
+        }
       }
       return session;
     },
