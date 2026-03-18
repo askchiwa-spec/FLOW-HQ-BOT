@@ -5,6 +5,12 @@ import { prisma } from './prisma';
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
+  // JWT strategy: session data is stored in a signed cookie — no DB round-trip
+  // needed to validate auth. This makes getServerSession() work reliably in
+  // both server components AND App Router route handlers.
+  session: {
+    strategy: 'jwt',
+  },
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -31,30 +37,30 @@ export const authOptions: NextAuthOptions = {
     },
   },
   callbacks: {
-    async session({ session, user }) {
-      if (session.user) {
+    async jwt({ token, user }) {
+      // On initial sign-in `user` is the DB user from the adapter.
+      // Persist the fields we need into the JWT so the session callback can
+      // read them on every subsequent request without a DB query.
+      if (user) {
+        token.userId = user.id;
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
-            include: {
-              tenant: {
-                include: {
-                  setup_requests: {
-                    orderBy: { created_at: 'desc' },
-                    take: 1,
-                  },
-                },
-              },
-            },
+            select: { tenant_id: true, role: true },
           });
-
-          (session.user as any).id = dbUser?.id;
-          (session.user as any).tenantId = dbUser?.tenant_id;
-          (session.user as any).role = dbUser?.role;
-          (session.user as any).hasSetupRequest = dbUser?.tenant?.setup_requests && dbUser.tenant.setup_requests.length > 0;
+          token.tenantId = dbUser?.tenant_id ?? null;
+          token.role = dbUser?.role ?? null;
         } catch {
-          // Non-fatal — session still valid without extended fields
+          // Non-fatal
         }
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as any).id = token.userId;
+        (session.user as any).tenantId = token.tenantId;
+        (session.user as any).role = token.role;
       }
       return session;
     },
