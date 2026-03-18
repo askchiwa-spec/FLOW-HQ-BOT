@@ -67,19 +67,6 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  cookies: {
-    // Chrome bounce-tracking mitigation strips SameSite=Lax cookies in OAuth
-    // redirect chains (site → Google → site). Setting these to SameSite=None
-    // (requires Secure) keeps the state/PKCE cookies intact through the redirect.
-    state: {
-      name: '__Secure-next-auth.state',
-      options: { httpOnly: true, sameSite: 'none' as const, path: '/', secure: true },
-    },
-    pkceCodeVerifier: {
-      name: '__Secure-next-auth.pkce.code_verifier',
-      options: { httpOnly: true, sameSite: 'none' as const, path: '/', secure: true },
-    },
-  },
   pages: {
     signIn: '/auth/signin',
     newUser: '/app/onboarding',
