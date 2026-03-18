@@ -46,7 +46,7 @@ git pull origin main
 
 # 2. Install/update dependencies
 echo "→ Installing dependencies..."
-npm ci
+npm install --prefer-offline
 
 # 3. Generate Prisma client (must happen before builds)
 echo "→ Generating Prisma client..."
