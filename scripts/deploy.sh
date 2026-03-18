@@ -40,6 +40,14 @@ if [ "$MISSING_ENV" = "1" ]; then
   echo "⚠️  Env issues detected — continuing deploy but portal auth may fail"
 fi
 
+# Cross-service key consistency check
+WEB_KEY=$(grep "^PORTAL_INTERNAL_KEY=" "$WEB_ENV" 2>/dev/null | cut -d= -f2-)
+CP_KEY=$(grep "^PORTAL_INTERNAL_KEY=" "$CP_ENV" 2>/dev/null | cut -d= -f2-)
+if [ -n "$WEB_KEY" ] && [ -n "$CP_KEY" ] && [ "$WEB_KEY" != "$CP_KEY" ]; then
+  echo "❌ PORTAL_INTERNAL_KEY mismatch between $WEB_ENV and $CP_ENV — portal API will return 401 for all users. Fix before deploying."
+  exit 1
+fi
+
 # 1. Pull latest code
 echo "→ Pulling latest code..."
 git pull origin main
