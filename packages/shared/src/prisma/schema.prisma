@@ -71,6 +71,28 @@ enum LeadStatus {
   CANCELLED
 }
 
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum FollowupStatus {
+  ACTIVE
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
+enum ScheduledMessageType {
+  APPOINTMENT_REMINDER_24H
+  APPOINTMENT_REMINDER_2H
+  APPOINTMENT_MISSED
+  ORDER_FOLLOWUP
+}
+
 enum RequestType {
   APPOINTMENT
   ORDER
@@ -99,6 +121,9 @@ model Tenant {
   business_documents  BusinessDocument[]
   conversation_messages ConversationMessage[]
   customers           Customer[]
+  appointments        Appointment[]
+  order_followups     OrderFollowup[]
+  scheduled_messages  ScheduledMessage[]
 
   @@map("tenants")
 }
@@ -293,4 +318,65 @@ model Customer {
   @@unique([tenant_id, phone])
   @@index([tenant_id, lead_status])
   @@map("customers")
+}
+
+model Appointment {
+  id               String            @id @default(uuid())
+  tenant_id        String
+  tenant           Tenant            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  contact_phone    String
+  contact_name     String?
+  service          String?
+  appointment_at   DateTime?
+  status           AppointmentStatus @default(PENDING)
+  reminder_24h_sent Boolean          @default(false)
+  reminder_2h_sent  Boolean          @default(false)
+  missed_sent       Boolean          @default(false)
+  raw_text         String?           @db.Text
+  created_at       DateTime          @default(now())
+  updated_at       DateTime          @updatedAt
+
+  scheduled_messages ScheduledMessage[]
+
+  @@index([tenant_id, appointment_at])
+  @@index([tenant_id, contact_phone])
+  @@map("appointments")
+}
+
+model OrderFollowup {
+  id              String         @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  contact_phone   String
+  order_summary   String?        @db.Text
+  status          FollowupStatus @default(ACTIVE)
+  followup_count  Int            @default(0)
+  next_followup_at DateTime?
+  created_at      DateTime       @default(now())
+  updated_at      DateTime       @updatedAt
+
+  scheduled_messages ScheduledMessage[]
+
+  @@index([tenant_id, status, next_followup_at])
+  @@index([tenant_id, contact_phone])
+  @@map("order_followups")
+}
+
+model ScheduledMessage {
+  id             String               @id @default(uuid())
+  tenant_id      String
+  tenant         Tenant               @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  contact_phone  String
+  message        String               @db.Text
+  type           ScheduledMessageType
+  send_at        DateTime
+  sent_at        DateTime?
+  appointment_id String?
+  appointment    Appointment?         @relation(fields: [appointment_id], references: [id], onDelete: SetNull)
+  followup_id    String?
+  followup       OrderFollowup?       @relation(fields: [followup_id], references: [id], onDelete: SetNull)
+  created_at     DateTime             @default(now())
+
+  @@index([tenant_id, send_at, sent_at])
+  @@map("scheduled_messages")
 }

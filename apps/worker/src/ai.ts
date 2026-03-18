@@ -1,7 +1,65 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaClient } from '@chatisha/shared';
+import https from 'https';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// Templates that benefit from live exchange rates
+const RATE_TEMPLATES = ['HOTEL', 'REAL_ESTATE', 'ECOMMERCE'];
+
+// Cache exchange rates for 30 minutes
+let rateCache: { rates: Record<string, number>; fetchedAt: number } | null = null;
+const RATE_CACHE_TTL_MS = 30 * 60 * 1000;
+
+async function fetchExchangeRates(): Promise<Record<string, number>> {
+  // Use open.er-api.com — free, no API key required
+  return new Promise((resolve) => {
+    https.get('https://open.er-api.com/v6/latest/TZS', (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.result === 'success' && json.rates) {
+            resolve(json.rates);
+          } else {
+            resolve({});
+          }
+        } catch {
+          resolve({});
+        }
+      });
+    }).on('error', () => resolve({}));
+  });
+}
+
+async function getExchangeRates(): Promise<string> {
+  const now = Date.now();
+  if (!rateCache || now - rateCache.fetchedAt > RATE_CACHE_TTL_MS) {
+    const rates = await fetchExchangeRates();
+    if (Object.keys(rates).length > 0) {
+      rateCache = { rates, fetchedAt: now };
+    }
+  }
+  if (!rateCache || Object.keys(rateCache.rates).length === 0) return '';
+
+  const r = rateCache.rates;
+  // rates are TZS per 1 foreign currency unit — er-api gives rates FROM TZS
+  // so r.USD = how much USD per 1 TZS, invert to get TZS per 1 USD
+  const usdRate = r['USD'] ? Math.round(1 / r['USD']) : null;
+  const eurRate = r['EUR'] ? Math.round(1 / r['EUR']) : null;
+  const gbpRate = r['GBP'] ? Math.round(1 / r['GBP']) : null;
+  const kenRate = r['KES'] ? Math.round(1 / r['KES']) : null;
+
+  const parts = [];
+  if (usdRate) parts.push(`1 USD = ${usdRate.toLocaleString()} TZS`);
+  if (eurRate) parts.push(`1 EUR = ${eurRate.toLocaleString()} TZS`);
+  if (gbpRate) parts.push(`1 GBP = ${gbpRate.toLocaleString()} TZS`);
+  if (kenRate) parts.push(`1 KES = ${kenRate.toLocaleString()} TZS`);
+
+  if (parts.length === 0) return '';
+  return `\n\n=== LIVE EXCHANGE RATES (updated today) ===\n${parts.join(', ')}\nWhen customers ask prices in USD, EUR, GBP or KES, convert from TZS using these rates and show both amounts.\n=== END RATES ===`;
+}
 
 // How many past messages to include as conversation history
 const HISTORY_LIMIT = 10;
@@ -28,7 +86,7 @@ export interface AIConfig {
   hoursJson: Record<string, { open: string; close: string } | null> | null;
 }
 
-function buildSystemPrompt(config: AIConfig): string {
+function buildSystemPrompt(config: AIConfig, exchangeRates = ''): string {
   const langInstruction =
     config.language === 'SW'
       ? 'Always reply in Swahili. If the customer writes in English, reply in Swahili.'
@@ -161,7 +219,7 @@ IMPORTANT RULES:
 - Never make up prices, services, or information not in the knowledge base.
 - If you don't know something, say so honestly and offer to connect the customer with a human.
 - If a customer asks for a human agent or you truly cannot help, end your reply with exactly: [HUMAN_NEEDED]
-- Do not use markdown formatting (no bold, bullets, headers) — use plain text only.${websiteSection}${knowledgeSection}`;
+- Do not use markdown formatting (no bold, bullets, headers) — use plain text only.${websiteSection}${knowledgeSection}${exchangeRates}`;
 }
 
 export async function getAIResponse(
@@ -195,10 +253,15 @@ export async function getAIResponse(
     { role: 'user', content: userMessage },
   ];
 
+  // Inject live exchange rates for price-sensitive templates
+  const exchangeRates = RATE_TEMPLATES.includes(config.templateType)
+    ? await getExchangeRates()
+    : '';
+
   const response = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 400,
-    system: buildSystemPrompt(config),
+    system: buildSystemPrompt(config, exchangeRates),
     messages,
   });
 

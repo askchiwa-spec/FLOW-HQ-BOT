@@ -48,8 +48,9 @@ echo "→ Reloading PM2 processes..."
 if [ ! -f "apps/web/.next/BUILD_ID" ]; then
   echo "⚠️  Next.js build missing — skipping web reload. Run: pm2 restart flowhq-web"
   pm2 reload flowhq-control-plane --update-env
+  pm2 reload flowhq-scheduler --update-env 2>/dev/null || pm2 start ecosystem.config.js --only flowhq-scheduler
 else
-  pm2 reload ecosystem.config.js --update-env
+  pm2 reload ecosystem.config.js --update-env 2>/dev/null || pm2 start ecosystem.config.js
 fi
 
 echo "=== Deploy complete ==="

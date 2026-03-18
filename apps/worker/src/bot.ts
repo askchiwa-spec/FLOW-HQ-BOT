@@ -12,6 +12,7 @@ import { MessagingAdapter } from './messaging/interface';
 import { WwebjsAdapter } from './messaging/wwebjs';
 import { logInbound, logOutbound } from './audit';
 import { upsertCustomer } from './crm';
+import { extractBookingDetails, saveAppointment, saveOrderFollowup } from './extractor';
 
 export class WhatsAppBot {
   private client: Client;
@@ -506,6 +507,41 @@ export class WhatsAppBot {
         await upsertCustomer(this.prisma, this.tenantId, msg.from, this.config.templateType, body, replyText);
       }
 
+      // Extract booking/order details and schedule reminders (fire-and-forget, never crashes worker)
+      if (this.config && !handoff) {
+        const recentHistory = await this.prisma.conversationMessage.findMany({
+          where: { tenant_id: this.tenantId, contact: msg.from },
+          orderBy: { created_at: 'asc' },
+          take: 20,
+        });
+        const conversation = recentHistory.map((m) => ({ role: m.role, content: m.content }));
+        extractBookingDetails(conversation, this.config.templateType)
+          .then(async (extracted) => {
+            if (!extracted) return;
+            if ('appointment_at' in extracted || 'service' in extracted) {
+              await saveAppointment(this.prisma as any, this.tenantId, msg.from, extracted as any);
+            } else if ('order_summary' in extracted) {
+              await saveOrderFollowup(this.prisma as any, this.tenantId, msg.from, extracted as any);
+            }
+          })
+          .catch(() => {}); // Never crash the worker
+      }
+
+      // Handle order cancellation from customer
+      if (this.config) {
+        const cancelKeywords = ['cancel', 'futa', 'sitaki', 'hapana', 'no', 'stop order', 'futa order'];
+        const lowerBody = (msg.body || '').toLowerCase();
+        if (cancelKeywords.some((k) => lowerBody.includes(k))) {
+          await (this.prisma as any).orderFollowup.updateMany({
+            where: { tenant_id: this.tenantId, contact_phone: msg.from, status: 'ACTIVE' },
+            data: { status: 'CANCELLED' },
+          }).catch(() => {});
+          await (this.prisma as any).scheduledMessage.deleteMany({
+            where: { tenant_id: this.tenantId, contact_phone: msg.from, sent_at: null, type: 'ORDER_FOLLOWUP' },
+          }).catch(() => {});
+        }
+      }
+
       // Update last seen
       await this.prisma.whatsAppSession.update({
         where: { tenant_id: this.tenantId },
@@ -532,6 +568,36 @@ export class WhatsAppBot {
     }
   }
 
+  private async sendDueScheduledMessages(): Promise<void> {
+    try {
+      const now = new Date();
+      const due = await (this.prisma as any).scheduledMessage.findMany({
+        where: {
+          tenant_id: this.tenantId,
+          sent_at: null,
+          send_at: { lte: now },
+        },
+        take: 10, // max 10 per heartbeat to avoid flooding
+        orderBy: { send_at: 'asc' },
+      });
+
+      for (const msg of due) {
+        try {
+          await this.adapter.sendMessage(msg.contact_phone, msg.message);
+          await (this.prisma as any).scheduledMessage.update({
+            where: { id: msg.id },
+            data: { sent_at: now },
+          });
+          this.logger.info({ type: msg.type, contact: msg.contact_phone }, 'Scheduled message sent');
+        } catch (sendErr) {
+          this.logger.error({ err: sendErr, msgId: msg.id }, 'Failed to send scheduled message');
+        }
+      }
+    } catch (err) {
+      this.logger.error({ err }, 'sendDueScheduledMessages error');
+    }
+  }
+
   private startHeartbeat(): void {
     const heartbeatIntervalMs = parseInt(process.env.HEARTBEAT_INTERVAL_MS || '30000');
 
@@ -552,6 +618,9 @@ export class WhatsAppBot {
         });
 
         this.logger.debug('Heartbeat sent');
+
+        // Send any due scheduled messages for this tenant
+        await this.sendDueScheduledMessages();
       } catch (error) {
         this.logger.error('Heartbeat failed:', error);
       }

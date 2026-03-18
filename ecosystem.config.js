@@ -36,6 +36,22 @@ module.exports = {
       out_file: '/var/www/flowhq/logs/web-out.log',
       error_file: '/var/www/flowhq/logs/web-error.log',
     },
+    {
+      name: 'flowhq-scheduler',
+      script: './dist/scheduler.js',
+      cwd: '/var/www/flowhq/apps/worker',
+      instances: 1,
+      exec_mode: 'fork',
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '256M',
+      exp_backoff_restart_delay: 5000,
+      env: {
+        NODE_ENV: 'production',
+      },
+      out_file: '/var/www/flowhq/logs/scheduler-out.log',
+      error_file: '/var/www/flowhq/logs/scheduler-error.log',
+    },
   ],
 };
 
