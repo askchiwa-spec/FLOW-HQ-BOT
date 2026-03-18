@@ -19,21 +19,23 @@ export const authOptions: NextAuthOptions = {
   ],
   events: {
     async createUser({ user }) {
-      // Runs after the adapter creates the user — safe to create and link a tenant here
-      const newTenant = await prisma.tenant.create({
-        data: {
-          name: user.name || 'New Business',
-          phone_number: '',
-          status: 'NEW',
-          whatsapp_session: { create: {} },
-          worker_process: { create: { pm2_name: `worker-${Date.now()}` } },
-        },
-      });
-
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { tenant_id: newTenant.id, role: 'OWNER' },
-      });
+      try {
+        const newTenant = await prisma.tenant.create({
+          data: {
+            name: user.name || 'New Business',
+            phone_number: '',
+            status: 'NEW',
+            whatsapp_session: { create: {} },
+            worker_process: { create: { pm2_name: `worker-${Date.now()}` } },
+          },
+        });
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { tenant_id: newTenant.id, role: 'OWNER' },
+        });
+      } catch (err) {
+        console.error('[auth] createUser event failed:', err);
+      }
     },
   },
   callbacks: {
