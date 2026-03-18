@@ -1,4 +1,4 @@
-import { getToken } from 'next-auth/jwt';
+import { getPortalToken } from '@/lib/portal-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -7,7 +7,7 @@ const CONTROL_PLANE_URL = process.env.CONTROL_PLANE_URL || 'http://localhost:310
 const PORTAL_INTERNAL_KEY = process.env.PORTAL_INTERNAL_KEY || '';
 
 export async function GET(request: NextRequest) {
-  const token = await getToken({ req: request });
+  const token = await getPortalToken(request);
   if (!token?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const tenantId = token.tenantId as string | null;
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const token = await getToken({ req });
+  const token = await getPortalToken(req);
   if (!token?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const tenantId = token.tenantId as string | null;
