@@ -1,23 +1,35 @@
-import { getServerSession } from 'next-auth';
-import { authOptions } from './auth';
+import { cookies } from 'next/headers';
+import { decode } from 'next-auth/jwt';
 
 /**
- * Returns a token-shaped object from the active NextAuth session.
+ * Reads and decodes the NextAuth JWT directly from the cookie store.
  *
- * Using getServerSession(authOptions) instead of getToken({ req }) because
- * getServerSession reads cookies via next/headers — the same path that powers
- * /api/auth/session. getToken({ req }) was returning null despite a valid
- * session because behind nginx (HTTP internally, HTTPS at the edge) the
- * cookie-name detection was unreliable.
+ * Both getToken({ req }) and getServerSession(authOptions) were returning null
+ * in App Router route handlers behind nginx. This approach bypasses both by
+ * using cookies() from next/headers (which reliably works in route handlers)
+ * and decode() from next-auth/jwt to verify and unpack the JWT.
  */
 export async function getPortalToken(_req?: unknown) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return null;
-  const user = session.user as any;
+  const cookieStore = cookies();
+
+  // NextAuth uses __Secure- prefix on HTTPS, plain name on HTTP
+  const sessionToken =
+    cookieStore.get('__Secure-next-auth.session-token')?.value ??
+    cookieStore.get('next-auth.session-token')?.value;
+
+  if (!sessionToken) return null;
+
+  const token = await decode({
+    token: sessionToken,
+    secret: process.env.NEXTAUTH_SECRET!,
+  });
+
+  if (!token) return null;
+
   return {
-    email: user.email as string | null,
-    tenantId: user.tenantId as string | null,
-    role: user.role as string | null,
-    userId: user.id as string | null,
+    email: token.email as string | null,
+    tenantId: token.tenantId as string | null,
+    role: token.role as string | null,
+    userId: token.userId as string | null,
   };
 }
