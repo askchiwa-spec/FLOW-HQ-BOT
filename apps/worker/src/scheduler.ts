@@ -7,8 +7,7 @@
  *   - Expiring order followups after 3 followups or 48h
  */
 
-import { PrismaClient } from '@chatisha/shared';
-import logger from './logger';
+import { PrismaClient, logger } from '@chatisha/shared';
 
 const prisma = new PrismaClient();
 const POLL_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
