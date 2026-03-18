@@ -75,6 +75,7 @@ echo "→ Building worker..."
 npm run build --workspace=@chatisha/worker
 
 echo "→ Building web (Next.js)..."
+rm -rf apps/web/.next
 npm run build --workspace=@chatisha/web
 
 # 6. Reload PM2 processes (zero-downtime for control-plane and web)
