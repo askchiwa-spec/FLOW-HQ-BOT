@@ -1,14 +1,13 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   const CONTROL_PLANE_URL = process.env.CONTROL_PLANE_URL || 'http://localhost:3100';
   const PORTAL_INTERNAL_KEY = process.env.PORTAL_INTERNAL_KEY || '';
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
+  const token = await getToken({ req: request });
+  if (!token?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -19,7 +18,7 @@ export async function PATCH(request: Request) {
     headers: {
       'Content-Type': 'application/json',
       'x-portal-key': PORTAL_INTERNAL_KEY,
-      'x-user-email': session.user.email,
+      'x-user-email': token.email as string,
     },
     body: JSON.stringify(body),
   });

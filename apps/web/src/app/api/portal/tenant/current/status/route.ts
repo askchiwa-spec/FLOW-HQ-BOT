@@ -1,15 +1,14 @@
-import { getServerSession } from 'next-auth/next';
-import { NextResponse } from 'next/server';
-import { authOptions } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const CONTROL_PLANE_URL = process.env.CONTROL_PLANE_URL || 'http://localhost:3100';
   const PORTAL_INTERNAL_KEY = process.env.PORTAL_INTERNAL_KEY || '';
-  const session = await getServerSession(authOptions);
+  const token = await getToken({ req: request });
 
-  if (!session?.user?.email) {
+  if (!token?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -17,7 +16,7 @@ export async function GET() {
     const res = await fetch(`${CONTROL_PLANE_URL}/portal/tenant/current/status`, {
       headers: {
         'x-portal-key': PORTAL_INTERNAL_KEY,
-        'x-user-email': session.user.email,
+        'x-user-email': token.email as string,
       },
     });
 
