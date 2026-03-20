@@ -273,6 +273,10 @@
             <% if (tenant.status === 'ERROR') { %>
               <button class="btn btn-danger" onclick="workerAction('force-restart', true)">Force Restart</button>
             <% } %>
+            <button class="btn btn-ghost" onclick="resetSession()" style="margin-left:auto;" title="Use this when the tenant changed their WhatsApp number — wipes old session so a fresh QR is generated">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+              Reset Session (New Number)
+            </button>
           </div>
         </div>
       </div>
@@ -433,12 +437,29 @@
       else alert('Failed: ' + action);
     }
 
+    async function resetSession() {
+      if (!confirm('This will stop the worker and delete the WhatsApp session files.\n\nUse this when the tenant has changed their WhatsApp number.\n\nAfter reset, start the worker to get a fresh QR code.\n\nContinue?')) return;
+      const res = await fetch('/admin/tenants/' + tenantId + '/session/reset', { method: 'POST' });
+      if (res.ok) window.location.reload();
+      else alert('Failed to reset session');
+    }
+
+    // Poll for QR/status changes — only reload when state actually changes
     const tenantStatus = '<%= tenant.status %>';
-    if (tenantStatus === 'QR_PENDING') {
+    const hasQr = <%= tenant.whatsapp_session?.last_qr ? 'true' : 'false' %>;
+
+    if (tenantStatus === 'QR_PENDING' || tenantStatus === 'NEW') {
       setInterval(async () => {
-        const res = await fetch('/admin/tenants/' + tenantId + '/qr');
-        const data = await res.json();
-        if (data.qr) window.location.reload();
+        try {
+          const res = await fetch('/admin/tenants/' + tenantId + '/qr');
+          const data = await res.json();
+          // Reload only when something changed: connected, or QR appeared when there was none
+          if (data.state === 'CONNECTED') {
+            window.location.reload();
+          } else if (data.qr && !hasQr) {
+            window.location.reload();
+          }
+        } catch (_) {}
       }, 5000);
     }
   </script>

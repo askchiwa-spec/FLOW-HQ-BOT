@@ -1,9 +1,13 @@
 name: Deploy
 
 on:
-  push:
+  # Trigger only after CI workflow completes successfully on main
+  workflow_run:
+    workflows: [CI]
     branches: [main]
-  workflow_dispatch: # allow manual trigger from GitHub UI
+    types: [completed]
+  # Allow manual trigger from GitHub UI regardless of CI
+  workflow_dispatch:
 
 # Only one deploy runs at a time
 concurrency:
@@ -14,7 +18,9 @@ jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [] # runs independently; CI is a separate workflow
+    # For workflow_run trigger: only proceed if CI passed.
+    # For workflow_dispatch (manual): always proceed.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout code

@@ -25,6 +25,10 @@ lerna-debug.log*
 # Sessions (WhatsApp data)
 sessions/
 
+# WhatsApp Web JS cache (generated at runtime)
+.wwebjs_cache/
+.wwebjs_auth/
+
 # Database
 *.db
 *.sqlite

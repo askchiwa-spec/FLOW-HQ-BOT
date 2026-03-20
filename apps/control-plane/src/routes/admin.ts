@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient, logger } from '@chatisha/shared';
 import { startWorker, stopWorker, restartWorker, isWorkerRunning } from '../provisioner';
+import path from 'path';
+import fs from 'fs';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -232,6 +234,50 @@ router.post('/tenants/:id/worker/force-restart', async (req: Request, res: Respo
   } catch (error) {
     logger.error('Error force-restarting worker:', error);
     res.status(500).json({ error: 'Failed to force-restart worker' });
+  }
+});
+
+router.post('/tenants/:id/session/reset', async (req: Request, res: Response) => {
+  try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.params.id },
+      include: { worker_process: true },
+    });
+    if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    // Stop worker first
+    if (tenant.worker_process?.pm2_name) {
+      await stopWorker(tenant.id, tenant.worker_process.pm2_name, prisma).catch(() => {});
+    }
+
+    // Delete session files from disk so the worker gets a fresh start
+    const sessionPath = path.join(process.env.PROJECT_ROOT || '/home/baamrecs/flowhq-bot', 'sessions', tenant.id);
+    if (fs.existsSync(sessionPath)) {
+      fs.rmSync(sessionPath, { recursive: true, force: true });
+      logger.info({ tenantId: tenant.id, sessionPath }, 'Session files deleted');
+    }
+
+    // Reset DB state
+    await prisma.whatsAppSession.update({
+      where: { tenant_id: tenant.id },
+      data: { state: 'DISCONNECTED', last_qr: null, last_seen_at: null },
+    });
+
+    await prisma.tenant.update({
+      where: { id: tenant.id },
+      data: { status: 'NEW' },
+    });
+
+    await prisma.workerProcess.update({
+      where: { tenant_id: tenant.id },
+      data: { status: 'STOPPED', last_error: null },
+    });
+
+    logger.info({ tenantId: tenant.id }, 'Session reset — ready for new QR scan');
+    res.json({ success: true, message: 'Session reset. Start the worker to get a new QR code.' });
+  } catch (error) {
+    logger.error('Error resetting session:', error);
+    res.status(500).json({ error: 'Failed to reset session' });
   }
 });
 

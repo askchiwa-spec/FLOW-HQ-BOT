@@ -41,21 +41,29 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       // On initial sign-in `user` is the DB user from the adapter.
-      // Persist the fields we need into the JWT so the session callback can
-      // read them on every subsequent request without a DB query.
       if (user) {
         token.userId = user.id;
+      }
+
+      // Always refresh tenantId/role from DB when missing or on first sign-in.
+      // This fixes the race condition where createUser event (which links the tenant)
+      // may not have completed before the JWT was first minted, leaving tenantId null.
+      const userId = (token.userId ?? user?.id) as string | undefined;
+      if (userId && !token.tenantId) {
         try {
           const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
+            where: { id: userId },
             select: { tenant_id: true, role: true },
           });
-          token.tenantId = dbUser?.tenant_id ?? null;
-          token.role = dbUser?.role ?? null;
+          if (dbUser?.tenant_id) {
+            token.tenantId = dbUser.tenant_id;
+            token.role = dbUser.role;
+          }
         } catch {
           // Non-fatal
         }
       }
+
       return token;
     },
     async session({ session, token }) {
