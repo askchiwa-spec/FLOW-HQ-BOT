@@ -50,7 +50,8 @@ fi
 
 # 1. Pull latest code
 echo "→ Pulling latest code..."
-git pull origin main
+git fetch origin main
+git reset --hard origin/main
 
 # 2. Install/update dependencies
 echo "→ Installing dependencies..."
