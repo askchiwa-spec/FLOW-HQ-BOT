@@ -368,4 +368,64 @@ router.patch('/email', portalAuthMiddleware, async (req: Request, res: Response)
   }
 });
 
+/**
+ * GET /portal/tenant/current/handoffs
+ * Returns contacts currently in handoff state (waiting for human reply)
+ */
+router.get('/tenant/current/handoffs', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user?.tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    const handoffs = await prisma.conversationMessage.findMany({
+      where: { tenant_id: user.tenant.id, role: 'handoff' },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const enriched = await Promise.all(
+      handoffs.map(async (h) => {
+        const lastUserMsg = await prisma.conversationMessage.findFirst({
+          where: { tenant_id: user.tenant.id, contact: h.contact, role: 'user' },
+          orderBy: { created_at: 'desc' },
+        });
+        return {
+          contact: h.contact,
+          requestedAt: h.created_at,
+          lastMessage: lastUserMsg?.content ?? null,
+        };
+      })
+    );
+
+    res.json({ handoffs: enriched, total: enriched.length });
+  } catch (error) {
+    logger.error('Error fetching handoffs:', error);
+    res.status(500).json({ error: 'Failed to fetch handoffs' });
+  }
+});
+
+/**
+ * DELETE /portal/tenant/current/handoffs/:contact
+ * Resolve a handoff — bot resumes responding to this contact
+ */
+router.delete('/tenant/current/handoffs/:contact', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user?.tenant) return res.status(404).json({ error: 'Tenant not found' });
+
+    const contact = decodeURIComponent(req.params.contact);
+
+    const { count } = await prisma.conversationMessage.deleteMany({
+      where: { tenant_id: user.tenant.id, contact, role: 'handoff' },
+    });
+
+    if (count === 0) return res.status(404).json({ error: 'No handoff found for this contact' });
+
+    logger.info({ tenantId: user.tenant.id, contact }, 'Handoff resolved — bot will resume');
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error resolving handoff:', error);
+    res.status(500).json({ error: 'Failed to resolve handoff' });
+  }
+});
+
 export default router;
