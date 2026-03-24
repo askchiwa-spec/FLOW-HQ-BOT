@@ -73,6 +73,7 @@ export class WhatsAppBot {
       puppeteer: {
         headless: true,
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome',
+        protocolTimeout: 60000,
         args: [
           // Security / sandbox (required in Docker/VPS environments)
           '--no-sandbox',
