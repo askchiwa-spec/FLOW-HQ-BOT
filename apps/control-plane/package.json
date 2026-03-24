@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@chatisha/shared": "file:../../packages/shared",
+    "@sentry/node": "^10.45.0",
     "body-parser": "^1.20.2",
     "cors": "^2.8.6",
     "dotenv": "^16.3.1",

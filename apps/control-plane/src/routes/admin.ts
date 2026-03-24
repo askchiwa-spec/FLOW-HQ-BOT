@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient, logger } from '@chatisha/shared';
 import { startWorker, stopWorker, restartWorker, isWorkerRunning } from '../provisioner';
+import { notifyAdmin } from '../notify';
 import path from 'path';
 import fs from 'fs';
 
@@ -50,8 +51,16 @@ export async function markStaleWorkers(): Promise<void> {
         const result = await restartWorker(worker.tenant_id, worker.pm2_name, prisma);
         if (result.success) {
           logger.info({ tenantId: worker.tenant_id }, 'Stale worker auto-restarted successfully');
+          await notifyAdmin(
+            `⚠️ Stale worker auto-restarted: ${worker.tenant.name} (${worker.tenant_id.slice(0, 8)})\nLast seen: ${worker.tenant.whatsapp_session?.last_seen_at?.toISOString() ?? 'never'}`,
+            'Worker Restarted'
+          );
         } else {
           logger.error({ tenantId: worker.tenant_id, error: result.error }, 'Stale worker auto-restart failed');
+          await notifyAdmin(
+            `🔴 Stale worker restart FAILED: ${worker.tenant.name} (${worker.tenant_id.slice(0, 8)})\nError: ${result.error}`,
+            'Worker Restart Failed'
+          );
         }
       } catch (restartErr) {
         logger.error({ tenantId: worker.tenant_id, error: restartErr }, 'Stale worker restart threw');
@@ -63,6 +72,10 @@ export async function markStaleWorkers(): Promise<void> {
           where: { id: worker.tenant_id },
           data: { status: 'ERROR' }
         }).catch(() => {});
+        await notifyAdmin(
+          `🔴 Worker ERROR: ${worker.tenant.name} (${worker.tenant_id.slice(0, 8)})\nStale heartbeat + restart threw an exception. Manual intervention needed.`,
+          'Worker ERROR'
+        );
       }
     }
 

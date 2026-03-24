@@ -9,6 +9,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
     "@chatisha/shared": "file:../../packages/shared",
+    "@sentry/node": "^10.45.0",
     "dotenv": "^16.3.1",
     "qrcode": "^1.5.3",
     "whatsapp-web.js": "^1.23.0"

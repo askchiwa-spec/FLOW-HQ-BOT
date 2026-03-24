@@ -12,6 +12,7 @@
     "@auth/prisma-adapter": "^1.0.0",
     "@chatisha/shared": "file:../../packages/shared",
     "@headlessui/react": "^2.2.9",
+    "@sentry/nextjs": "^10.45.0",
     "framer-motion": "^12.34.3",
     "next": "^14.2.35",
     "next-auth": "^4.24.0",

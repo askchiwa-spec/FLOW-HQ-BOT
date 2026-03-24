@@ -4,14 +4,24 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import * as Sentry from '@sentry/node';
+import { notifyAdmin } from './notify';
+
+dotenv.config();
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV,
+    tracesSampleRate: 0.1,
+  });
+}
 import { PrismaClient } from '@chatisha/shared';
 import { logger } from '@chatisha/shared';
 import { authMiddleware } from './middleware/auth';
 import adminRoutes, { markStaleWorkers } from './routes/admin';
 import portalRoutes from './routes/portal';
 import documentRoutes from './routes/documents';
-
-dotenv.config();
 
 const app = express();
 const prisma = new PrismaClient();
@@ -186,6 +196,11 @@ async function runBillingCron(): Promise<void> {
           payload_json: { subscription_end_date: tenant.subscription_end_date },
         },
       });
+
+      await notifyAdmin(
+        `💳 Subscription paused (overdue): ${tenant.name}\nExpired: ${tenant.subscription_end_date?.toISOString().slice(0, 10)}\nPhone: ${tenant.phone_number}`,
+        'Subscription Overdue'
+      );
     }
 
     // 2. Find tenants due within 5 days (not yet reminded today)

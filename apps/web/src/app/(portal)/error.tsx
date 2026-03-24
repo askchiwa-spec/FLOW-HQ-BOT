@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import * as Sentry from '@sentry/nextjs';
 
 export default function PortalError({
   error,
@@ -11,6 +12,7 @@ export default function PortalError({
 }) {
   useEffect(() => {
     console.error('[PortalError]', error);
+    Sentry.captureException(error);
   }, [error]);
 
   return (

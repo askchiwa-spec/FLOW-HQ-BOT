@@ -13,6 +13,7 @@ import { WwebjsAdapter } from './messaging/wwebjs';
 import { logInbound, logOutbound } from './audit';
 import { upsertCustomer } from './crm';
 import { extractBookingDetails, saveAppointment, saveOrderFollowup } from './extractor';
+import { notifyAdmin } from './notify';
 
 export class WhatsAppBot {
   private client: Client;
@@ -279,6 +280,11 @@ export class WhatsAppBot {
           last_error: `BAN_SIGNAL: Auth failure — this number may be banned by WhatsApp. Details: ${msg}`
         }
       });
+
+      await notifyAdmin(
+        `🚨 WhatsApp auth failure: tenant ${this.tenantId.slice(0, 8)}\nThis number may be banned by WhatsApp.\nDetails: ${msg}`,
+        'BAN SIGNAL'
+      );
     });
   }
 

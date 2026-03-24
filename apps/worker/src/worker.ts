@@ -1,8 +1,17 @@
 import dotenv from 'dotenv';
+dotenv.config();
+
+import * as Sentry from '@sentry/node';
 import { WhatsAppBot } from './bot';
 import { createLogger } from '@chatisha/shared';
 
-dotenv.config();
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV,
+    tracesSampleRate: 0.1,
+  });
+}
 
 const tenantId = process.env.TENANT_ID;
 const sessionsPath = process.env.SESSIONS_PATH || './sessions';
@@ -37,11 +46,13 @@ process.on('SIGINT', async () => {
 
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught exception:', error);
+  Sentry.captureException(error);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason) => {
   logger.error('Unhandled rejection:', reason);
+  Sentry.captureException(reason);
 });
 
 // F1: Memory watchdog — check RSS every 60s; exit if critical so PM2 restarts cleanly
