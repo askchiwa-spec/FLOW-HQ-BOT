@@ -375,7 +375,7 @@ export class WhatsAppBot {
       }
 
       // Handoff check — contact is waiting for a human, bot stays silent
-      if (this.handoffContacts.has(msg.from) || handoffRecord) {
+      if (handoffRecord) {
         this.handoffContacts.add(msg.from);
         const waitMsg = lang === 'SW'
           ? `Ombi lako limepokelewa. Mtaalamu wetu atakuwasiliana nawe hivi karibuni. 🙏`
@@ -383,6 +383,8 @@ export class WhatsAppBot {
         await this.adapter.sendMessage(msg.from, waitMsg);
         return;
       }
+      // DB record cleared (admin resolved handoff) — remove stale in-memory entry
+      this.handoffContacts.delete(msg.from);
 
       // D1: Business hours check — reply "closed" and skip AI if outside configured hours
       if (this.config?.hoursJson) {
