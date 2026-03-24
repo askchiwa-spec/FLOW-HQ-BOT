@@ -15,7 +15,7 @@
     "db:deploy": "npm run db:deploy --workspace=@chatisha/shared",
     "dev:api": "npm run dev --workspace=@chatisha/control-plane",
     "start:api": "npm run start --workspace=@chatisha/control-plane",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package || true"
   },
   "devDependencies": {
     "patch-package": "^8.0.1",
