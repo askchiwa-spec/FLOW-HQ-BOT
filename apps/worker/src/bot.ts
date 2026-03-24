@@ -92,7 +92,7 @@ export class WhatsAppBot {
 
   private setupEventHandlers() {
     this.client.on('qr', async (qr) => {
-      this.logger.info('QR code received');
+      this.logger.info('[QR] New QR code generated — waiting for phone to scan (65s window)...');
 
       // B2: Reset expiry timer — each new QR gets a fresh 65-second window
       if (this.qrExpiryTimeout) clearTimeout(this.qrExpiryTimeout);
@@ -125,6 +125,14 @@ export class WhatsAppBot {
       } catch (error) {
         this.logger.error('Failed to process QR code:', error);
       }
+    });
+
+    this.client.on('loading_screen', (percent, message) => {
+      this.logger.info({ percent, message }, '[SCAN] WhatsApp loading screen — phone scanned QR, authenticating...');
+    });
+
+    this.client.on('authenticated', () => {
+      this.logger.info('[SCAN] Authenticated successfully — session credentials saved, waiting for ready...');
     });
 
     this.client.on('ready', async () => {
@@ -257,7 +265,7 @@ export class WhatsAppBot {
     });
 
     this.client.on('auth_failure', async (msg) => {
-      this.logger.error('Auth failure:', msg);
+      this.logger.error({ reason: msg }, '[AUTH] Auth failure — scan was rejected. Possible causes: wrong WhatsApp account, number banned, or WhatsApp version mismatch.');
 
       await this.prisma.tenant.update({
         where: { id: this.tenantId },
