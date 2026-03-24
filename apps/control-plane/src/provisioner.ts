@@ -35,6 +35,7 @@ function writeEcosystemConfig(pm2Name: string, tenantId: string, sessionsPath: s
       SESSIONS_PATH: ${JSON.stringify(sessionsPath)},
       DATABASE_URL: ${JSON.stringify(process.env.DATABASE_URL || '')},
       ANTHROPIC_API_KEY: ${JSON.stringify(process.env.ANTHROPIC_API_KEY || '')},
+      PUPPETEER_EXECUTABLE_PATH: ${JSON.stringify(process.env.PUPPETEER_EXECUTABLE_PATH || '')},
       LOG_LEVEL: ${JSON.stringify(process.env.LOG_LEVEL || 'info')},
       RATE_LIMIT_MAX_PER_MINUTE: ${JSON.stringify(process.env.RATE_LIMIT_MAX_PER_MINUTE || '10')},
       HEARTBEAT_INTERVAL_MS: ${JSON.stringify(process.env.HEARTBEAT_INTERVAL_MS || '30000')},
