@@ -200,8 +200,9 @@ export class WhatsAppBot {
       // Skip group messages — only respond to 1-on-1 chats
       if (msg.from.endsWith('@g.us')) return;
 
-      // Skip broadcast/status messages (double guard: address suffix + isStatus flag)
+      // Skip broadcast/status/newsletter messages
       if (msg.from.endsWith('@broadcast')) return;
+      if (msg.from.endsWith('@newsletter')) return;
       if ((msg as any).isStatus) return;
       if (msg.from === 'status@broadcast') return;
 
