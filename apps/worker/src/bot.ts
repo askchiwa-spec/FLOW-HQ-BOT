@@ -74,11 +74,49 @@ export class WhatsAppBot {
         headless: true,
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome',
         args: [
+          // Security / sandbox (required in Docker/VPS environments)
           '--no-sandbox',
           '--disable-setuid-sandbox',
+
+          // Memory — swap /dev/shm for in-process memory (avoids 64MB shm limit)
           '--disable-dev-shm-usage',
+
+          // Rendering — disable GPU entirely (headless server, no display)
           '--disable-gpu',
+          '--disable-software-rasterizer',
+
+          // Startup
           '--no-first-run',
+          '--no-zygote',
+
+          // Memory optimisation — cap V8 heap and disable unused features
+          '--js-flags=--max-old-space-size=128',
+          '--memory-pressure-off',
+          '--disable-extensions',
+          '--disable-background-networking',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-breakpad',
+          '--disable-client-side-phishing-detection',
+          '--disable-component-update',
+          '--disable-default-apps',
+          '--disable-domain-reliability',
+          '--disable-features=AudioServiceOutOfProcess',
+          '--disable-hang-monitor',
+          '--disable-ipc-flooding-protection',
+          '--disable-notifications',
+          '--disable-offer-store-unmasked-wallet-cards',
+          '--disable-popup-blocking',
+          '--disable-print-preview',
+          '--disable-prompt-on-repost',
+          '--disable-renderer-backgrounding',
+          '--disable-sync',
+          '--disable-translate',
+          '--metrics-recording-only',
+          '--mute-audio',
+          '--no-default-browser-check',
+          '--password-store=basic',
+          '--use-mock-keychain',
         ],
       },
     });

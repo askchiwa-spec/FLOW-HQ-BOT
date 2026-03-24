@@ -56,8 +56,9 @@ process.on('unhandledRejection', (reason) => {
 });
 
 // F1: Memory watchdog — check RSS every 60s; exit if critical so PM2 restarts cleanly
-const MEMORY_WARN_MB = parseInt(process.env.MEMORY_WARN_MB || '400');
-const MEMORY_CRITICAL_MB = parseInt(process.env.MEMORY_CRITICAL_MB || '600');
+// Tighter thresholds after Chrome memory optimisation (was 400/600)
+const MEMORY_WARN_MB = parseInt(process.env.MEMORY_WARN_MB || '250');
+const MEMORY_CRITICAL_MB = parseInt(process.env.MEMORY_CRITICAL_MB || '400');
 setInterval(() => {
   const rssMb = process.memoryUsage().rss / 1024 / 1024;
   if (rssMb > MEMORY_CRITICAL_MB) {
