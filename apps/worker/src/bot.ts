@@ -98,7 +98,11 @@ export class WhatsAppBot {
       }, 65000);
 
       try {
-        const qrDataUrl = await QRCode.toDataURL(qr);
+        const qrDataUrl = await QRCode.toDataURL(qr, {
+          width: 512,
+          margin: 2,
+          errorCorrectionLevel: 'H',
+        });
 
         await this.prisma.whatsAppSession.update({
           where: { tenant_id: this.tenantId },
