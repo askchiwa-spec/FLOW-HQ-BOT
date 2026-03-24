@@ -9,6 +9,11 @@ const prisma = new PrismaClient();
 
 const STALE_THRESHOLD_MINUTES = parseInt(process.env.STALE_THRESHOLD_MINUTES || '5');
 
+const VALID_TEMPLATE_TYPES = ['BOOKING', 'ECOMMERCE', 'SUPPORT', 'REAL_ESTATE', 'RESTAURANT', 'HEALTHCARE', 'SALON', 'HOTEL'];
+const VALID_LANGUAGES = ['SW', 'EN'];
+const VALID_LEAD_STATUSES = ['NEW', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
+const VALID_SUBSCRIPTION_STATUSES = ['ACTIVE', 'PAUSED', 'CANCELLED'];
+
 router.get('/', (req: Request, res: Response) => {
   res.redirect('/admin/tenants');
 });
@@ -94,7 +99,23 @@ router.get('/tenants', async (req: Request, res: Response) => {
 router.post('/tenants', async (req: Request, res: Response) => {
   try {
     const { name, phone_number, template_type, business_name, language } = req.body;
-    
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ error: 'name is required' });
+    }
+    if (!phone_number || !/^\d{7,15}$/.test(String(phone_number).replace(/\s+/g, ''))) {
+      return res.status(400).json({ error: 'phone_number must be 7–15 digits' });
+    }
+    if (!template_type || !VALID_TEMPLATE_TYPES.includes(template_type)) {
+      return res.status(400).json({ error: `template_type must be one of: ${VALID_TEMPLATE_TYPES.join(', ')}` });
+    }
+    if (!business_name || typeof business_name !== 'string' || business_name.trim().length === 0) {
+      return res.status(400).json({ error: 'business_name is required' });
+    }
+    if (language && !VALID_LANGUAGES.includes(language)) {
+      return res.status(400).json({ error: `language must be one of: ${VALID_LANGUAGES.join(', ')}` });
+    }
+
     const tenant = await prisma.tenant.create({
       data: {
         name,
@@ -309,10 +330,22 @@ router.post('/tenants/:id/subscription', async (req: Request, res: Response) => 
   try {
     const { subscription_end_date, subscription_status } = req.body;
 
+    if (subscription_status && !VALID_SUBSCRIPTION_STATUSES.includes(subscription_status)) {
+      return res.status(400).json({ error: `subscription_status must be one of: ${VALID_SUBSCRIPTION_STATUSES.join(', ')}` });
+    }
+
+    let parsedDate: Date | null = null;
+    if (subscription_end_date) {
+      parsedDate = new Date(subscription_end_date);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({ error: 'subscription_end_date is not a valid date' });
+      }
+    }
+
     await prisma.tenant.update({
       where: { id: req.params.id },
       data: {
-        subscription_end_date: subscription_end_date ? new Date(subscription_end_date) : null,
+        subscription_end_date: parsedDate,
         subscription_status: subscription_status || 'ACTIVE',
       },
     });
@@ -354,8 +387,8 @@ router.get('/tenants/:id/qr', async (req: Request, res: Response) => {
 
 router.get('/tenants/:id/logs', async (req: Request, res: Response) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 200;
-    
+    const limit = Math.min(parseInt(req.query.limit as string) || 200, 500);
+
     const logs = await prisma.messageLog.findMany({
       where: { tenant_id: req.params.id },
       orderBy: { created_at: 'desc' },
@@ -592,6 +625,11 @@ router.get('/customers/:id', async (req: Request, res: Response) => {
 router.post('/customers/:id/status', async (req: Request, res: Response) => {
   try {
     const { lead_status } = req.body;
+
+    if (!lead_status || !VALID_LEAD_STATUSES.includes(lead_status)) {
+      return res.status(400).json({ error: `lead_status must be one of: ${VALID_LEAD_STATUSES.join(', ')}` });
+    }
+
     await (prisma.customer as any).update({
       where: { id: req.params.id },
       data: { lead_status },

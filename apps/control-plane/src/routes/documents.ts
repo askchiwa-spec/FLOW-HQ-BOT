@@ -138,6 +138,15 @@ router.post('/url', portalAuthMiddleware, async (req: Request, res: Response) =>
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'url is required' });
 
+    try {
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return res.status(400).json({ error: 'url must use http or https' });
+      }
+    } catch {
+      return res.status(400).json({ error: 'url is not a valid URL' });
+    }
+
     // Save URL reference — also update website_url on TenantConfig
     const doc = await prisma.businessDocument.create({
       data: {
@@ -196,6 +205,7 @@ router.post('/text', portalAuthMiddleware, async (req: Request, res: Response) =
 
     const { content, label } = req.body;
     if (!content || !content.trim()) return res.status(400).json({ error: 'content is required' });
+    if (content.length > 100_000) return res.status(400).json({ error: 'content must be 100,000 characters or fewer' });
 
     const filename = label?.trim() || `Custom notes (${new Date().toLocaleDateString('en-GB')})`;
 

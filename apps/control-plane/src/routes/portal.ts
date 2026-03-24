@@ -5,6 +5,10 @@ import { startWorker } from '../provisioner';
 const router = Router();
 const prisma = new PrismaClient();
 
+const VALID_TEMPLATE_TYPES = ['BOOKING', 'ECOMMERCE', 'SUPPORT', 'REAL_ESTATE', 'RESTAURANT', 'HEALTHCARE', 'SALON', 'HOTEL'];
+const VALID_LANGUAGES = ['SW', 'EN'];
+const VALID_LEAD_STATUSES = ['NEW', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
+
 /**
  * Middleware to validate portal internal key
  */
@@ -95,6 +99,22 @@ router.post('/setup-request', portalAuthMiddleware, async (req: Request, res: Re
     }
     
     const { businessName, templateType, whatsappNumber, language } = req.body;
+
+    if (!businessName || typeof businessName !== 'string' || businessName.trim().length === 0) {
+      return res.status(400).json({ error: 'businessName is required' });
+    }
+    if (businessName.length > 200) {
+      return res.status(400).json({ error: 'businessName must be 200 characters or fewer' });
+    }
+    if (!templateType || !VALID_TEMPLATE_TYPES.includes(templateType)) {
+      return res.status(400).json({ error: `templateType must be one of: ${VALID_TEMPLATE_TYPES.join(', ')}` });
+    }
+    if (!whatsappNumber || !/^\d{7,15}$/.test(whatsappNumber.replace(/\s+/g, ''))) {
+      return res.status(400).json({ error: 'whatsappNumber must be 7–15 digits' });
+    }
+    if (language && !VALID_LANGUAGES.includes(language)) {
+      return res.status(400).json({ error: `language must be one of: ${VALID_LANGUAGES.join(', ')}` });
+    }
 
     // Update tenant name and phone number
     await prisma.tenant.update({
@@ -233,8 +253,8 @@ router.get('/tenant/current/logs', portalAuthMiddleware, async (req: Request, re
       return res.status(404).json({ error: 'Tenant not found' });
     }
     
-    const limit = parseInt(req.query.limit as string) || 50;
-    
+    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+
     const logs = await prisma.messageLog.findMany({
       where: { tenant_id: user.tenant.id },
       orderBy: { created_at: 'desc' },
@@ -261,6 +281,10 @@ router.get('/customers', portalAuthMiddleware, async (req: Request, res: Respons
     }
 
     const status = req.query.status as string | undefined;
+
+    if (status && !VALID_LEAD_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `status must be one of: ${VALID_LEAD_STATUSES.join(', ')}` });
+    }
 
     const customers = await prisma.customer.findMany({
       where: {
@@ -295,6 +319,24 @@ router.patch('/profile', portalAuthMiddleware, async (req: Request, res: Respons
     }
 
     const { businessName, whatsappNumber, language, templateType } = req.body;
+
+    if (businessName !== undefined) {
+      if (typeof businessName !== 'string' || businessName.trim().length === 0) {
+        return res.status(400).json({ error: 'businessName must be a non-empty string' });
+      }
+      if (businessName.length > 200) {
+        return res.status(400).json({ error: 'businessName must be 200 characters or fewer' });
+      }
+    }
+    if (whatsappNumber !== undefined && !/^\d{7,15}$/.test(whatsappNumber.replace(/\s+/g, ''))) {
+      return res.status(400).json({ error: 'whatsappNumber must be 7–15 digits' });
+    }
+    if (language !== undefined && !VALID_LANGUAGES.includes(language)) {
+      return res.status(400).json({ error: `language must be one of: ${VALID_LANGUAGES.join(', ')}` });
+    }
+    if (templateType !== undefined && !VALID_TEMPLATE_TYPES.includes(templateType)) {
+      return res.status(400).json({ error: `templateType must be one of: ${VALID_TEMPLATE_TYPES.join(', ')}` });
+    }
 
     // Update tenant base fields
     const updatedTenant = await prisma.tenant.update({

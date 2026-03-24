@@ -1,4 +1,5 @@
 import { getPortalToken } from '@/lib/portal-auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +11,10 @@ export async function GET(request: NextRequest) {
 
   if (!token?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (checkRateLimit(token.email, 'me', 60, 60_000)) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
   try {

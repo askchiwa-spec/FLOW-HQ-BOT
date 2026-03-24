@@ -1,6 +1,9 @@
 import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { PrismaClient } from '@chatisha/shared';
 import { logger } from '@chatisha/shared';
 import { authMiddleware } from './middleware/auth';
@@ -13,6 +16,46 @@ dotenv.config();
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
+
+// Security headers
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// CORS — admin UI is browser-facing; portal routes are internal server-to-server only
+const ADMIN_ORIGIN = process.env.ADMIN_ORIGIN || 'https://admin.chatisha.com';
+
+app.use('/admin', cors({
+  origin: ADMIN_ORIGIN,
+  methods: ['GET', 'POST', 'DELETE', 'PATCH'],
+  credentials: true,
+}));
+
+// Portal routes are called server-to-server only — block all browser origins
+app.use('/portal', cors({
+  origin: false,
+}));
+
+// Rate limiting
+// Admin: 60 req/min per IP — protects against brute-force on ADMIN_PASSWORD
+const adminLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+});
+
+// Portal: 120 req/min per IP — Next.js server calls these; the web layer enforces
+// per-user limits on top, so this is a safety net against rogue/direct callers
+const portalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+});
+
+app.use('/admin', adminLimiter);
+app.use('/portal', portalLimiter);
 
 // Environment validation
 function validateEnvironment(): void {

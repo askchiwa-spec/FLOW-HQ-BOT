@@ -1,4 +1,5 @@
 import { getPortalToken } from '@/lib/portal-auth';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -8,6 +9,10 @@ export async function POST(req: NextRequest) {
   const PORTAL_INTERNAL_KEY = process.env.PORTAL_INTERNAL_KEY || '';
   const token = await getPortalToken(req);
   if (!token?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (checkRateLimit(token.email, 'documents-upload', 10, 60_000)) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
 
   const tenantId = token.tenantId as string | null;
   if (!tenantId) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
