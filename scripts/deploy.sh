@@ -56,6 +56,9 @@ git reset --hard origin/main
 # 2. Install/update dependencies
 echo "→ Installing dependencies..."
 npm install --prefer-offline
+# Apply patches (whatsapp-web.js Chrome 145 fix, etc.)
+echo "→ Applying patches..."
+npx patch-package || echo "⚠️  patch-package failed — continuing"
 
 # 3. Generate Prisma client (must happen before builds)
 echo "→ Generating Prisma client..."
@@ -96,6 +99,26 @@ if [ ! -f "apps/web/.next/BUILD_ID" ]; then
   pm2 reload flowhq-scheduler --update-env 2>/dev/null || pm2 start ecosystem.config.js --only flowhq-scheduler
 else
   pm2 reload ecosystem.config.js --update-env 2>/dev/null || pm2 start ecosystem.config.js
+fi
+
+# 7. Restart all tenant workers (picks up new worker build)
+echo "→ Restarting tenant workers..."
+WORKER_NAMES=$(pm2 jlist 2>/dev/null | python3 -c "
+import sys, json
+try:
+    procs = json.load(sys.stdin)
+    names = [p['name'] for p in procs if p['name'].startswith('worker-')]
+    print(' '.join(names))
+except:
+    pass
+" 2>/dev/null)
+if [ -n "$WORKER_NAMES" ]; then
+  for W in $WORKER_NAMES; do
+    echo "  Restarting $W..."
+    pm2 restart "$W" --update-env 2>/dev/null || echo "  ⚠️  Could not restart $W"
+  done
+else
+  echo "  No tenant workers running"
 fi
 
 echo "=== Deploy complete ==="
