@@ -376,16 +376,17 @@ router.get('/tenant/current/handoffs', portalAuthMiddleware, async (req: Request
   try {
     const user = await getUserFromRequest(req);
     if (!user?.tenant) return res.status(404).json({ error: 'Tenant not found' });
+    const tenantId = user.tenant.id;
 
     const handoffs = await prisma.conversationMessage.findMany({
-      where: { tenant_id: user.tenant.id, role: 'handoff' },
+      where: { tenant_id: tenantId, role: 'handoff' },
       orderBy: { created_at: 'desc' },
     });
 
     const enriched = await Promise.all(
       handoffs.map(async (h) => {
         const lastUserMsg = await prisma.conversationMessage.findFirst({
-          where: { tenant_id: user.tenant.id, contact: h.contact, role: 'user' },
+          where: { tenant_id: tenantId, contact: h.contact, role: 'user' },
           orderBy: { created_at: 'desc' },
         });
         return {
