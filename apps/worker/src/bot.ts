@@ -669,7 +669,7 @@ export class WhatsAppBot {
       await this.client.initialize();
 
     } catch (error) {
-      this.logger.error('Failed to start bot:', error);
+      this.logger.error({ err: error, stack: (error as Error)?.stack, message: (error as Error)?.message }, 'Failed to start bot');
 
       await this.prisma.workerProcess.update({
         where: { tenant_id: this.tenantId },

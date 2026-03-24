@@ -19,7 +19,7 @@ logger.info(`Starting worker for tenant: ${tenantId}`);
 const bot = new WhatsAppBot(tenantId, sessionsPath);
 
 bot.start().catch((error) => {
-  logger.error('Worker failed to start:', error);
+  logger.error({ err: error, stack: error?.stack, message: error?.message }, 'Worker failed to start');
   process.exit(1);
 });
 
