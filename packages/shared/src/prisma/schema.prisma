@@ -195,6 +195,7 @@ model User {
   emailVerified DateTime?
   image         String?
   phone         String?
+  password_hash String?
   role          UserRole  @default(OWNER)
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt

@@ -15,6 +15,18 @@ const VALID_LANGUAGES = ['SW', 'EN'];
 const VALID_LEAD_STATUSES = ['NEW', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
 const VALID_SUBSCRIPTION_STATUSES = ['ACTIVE', 'PAUSED', 'CANCELLED'];
 
+// Attach pending setup-request count to all admin views
+router.use(async (_req, res, next) => {
+  try {
+    res.locals.pendingCount = await prisma.setupRequest.count({
+      where: { status: { in: ['SUBMITTED', 'REVIEWING'] } },
+    });
+  } catch {
+    res.locals.pendingCount = 0;
+  }
+  next();
+});
+
 router.get('/', (req: Request, res: Response) => {
   res.redirect('/admin/tenants');
 });

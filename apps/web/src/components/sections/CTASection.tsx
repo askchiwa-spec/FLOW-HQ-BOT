@@ -2,10 +2,29 @@
 
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
+import { useState } from 'react';
 import { Button } from '../ui/Button';
 
 export function CTASection() {
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 });
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  async function handleLeadCapture(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email) return;
+    setStatus('loading');
+    try {
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      setStatus(res.ok ? 'success' : 'error');
+    } catch {
+      setStatus('error');
+    }
+  }
 
   return (
     <section className="relative py-20 lg:py-32 overflow-hidden">
@@ -52,6 +71,34 @@ export function CTASection() {
               Chat on WhatsApp
             </Button>
           </div>
+
+          {/* Email capture */}
+          {status === 'success' ? (
+            <div className="mb-8 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary-500/10 border border-primary-500/20 text-primary-400 text-sm font-medium">
+              ✓ Got it! We'll be in touch soon.
+            </div>
+          ) : (
+            <form onSubmit={handleLeadCapture} className="mb-8 flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+              <input
+                type="email"
+                required
+                placeholder="Enter your email address"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-primary-500/50 focus:bg-white/8 transition-all"
+              />
+              <button
+                type="submit"
+                disabled={status === 'loading'}
+                className="px-6 py-3 rounded-xl bg-primary-500 hover:bg-primary-600 text-white font-medium text-sm transition-colors disabled:opacity-60 whitespace-nowrap"
+              >
+                {status === 'loading' ? 'Sending…' : 'Get Early Access'}
+              </button>
+            </form>
+          )}
+          {status === 'error' && (
+            <p className="text-red-400 text-sm mb-4">Something went wrong. Try WhatsApp instead.</p>
+          )}
 
           {/* Phone Number */}
           <div className="inline-flex items-center gap-2 text-slate-400">

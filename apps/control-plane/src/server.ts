@@ -140,6 +140,14 @@ app.get('/health', async (_req, res) => {
   });
 });
 
+// Logout — registered before authMiddleware so it always returns 401 (clears browser Basic Auth cache)
+app.get('/admin/logout', (_req, res) => {
+  res.set('WWW-Authenticate', 'Basic realm="Chatisha Admin"');
+  res.status(401).send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Signed Out</title>
+<style>body{font-family:sans-serif;background:#080d18;color:#e2e8f0;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}a{color:#10b981;text-decoration:none;font-weight:500}p{font-size:16px;margin-bottom:12px;color:#94a3b8}</style>
+</head><body><div style="text-align:center"><p>You have been signed out.</p><a href="/admin/tenants">Sign in again &rarr;</a></div></body></html>`);
+});
+
 app.use('/admin', authMiddleware, adminRoutes);
 app.use('/portal', portalRoutes);
 app.use('/portal/documents', documentRoutes);

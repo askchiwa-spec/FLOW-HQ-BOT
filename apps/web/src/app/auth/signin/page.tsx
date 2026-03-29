@@ -67,6 +67,12 @@ export default async function SignInPage({ searchParams }: { searchParams: { err
         <div className="bg-dark-800/50 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
           <div className="space-y-4">
             <SignInButton provider={{ id: 'google', name: 'Google' }} />
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="text-xs text-slate-500 font-medium">OR</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+            <SignInButton provider={{ id: 'credentials', name: 'Email & Password' }} />
           </div>
         </div>
 
