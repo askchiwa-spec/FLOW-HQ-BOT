@@ -26,8 +26,8 @@ mkdir -p "$BACKUP_DIR"
 
 echo "[$(date)] Starting backup → $BACKUP_DIR/$FILENAME"
 
-# Use pg_dump v17 to match Neon server version
-PG_DUMP="/usr/lib/postgresql/17/bin/pg_dump"
+# Use pg_dump v18 (local PostgreSQL 18 on port 5433)
+PG_DUMP="/usr/lib/postgresql/18/bin/pg_dump"
 
 # Dump and compress
 "$PG_DUMP" "$DATABASE_URL" | gzip > "$BACKUP_DIR/$FILENAME"

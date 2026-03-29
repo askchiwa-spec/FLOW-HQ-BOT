@@ -65,15 +65,22 @@ echo "→ Generating Prisma client..."
 npx prisma generate --schema=packages/shared/src/prisma/schema.prisma
 
 # 4. Run database migrations (deploy mode — no interactive prompts)
-# NOTE: Uses directUrl (non-pooled) for advisory lock support.
-# Non-fatal: Neon direct connection can time out on advisory locks when no migrations are pending.
+# Load DATABASE_URL from control-plane .env so migrations always hit the correct DB.
 echo "→ Running database migrations..."
-set +e
-npx prisma migrate deploy --schema=packages/shared/src/prisma/schema.prisma
-MIGRATE_STATUS=$?
-set -e
-if [ $MIGRATE_STATUS -ne 0 ]; then
-  echo "⚠️  Migration step failed (exit $MIGRATE_STATUS) — skipping. Run manually if migrations are pending."
+CP_DB_URL=$(grep "^DATABASE_URL=" apps/control-plane/.env 2>/dev/null | cut -d= -f2-)
+if [ -z "$CP_DB_URL" ]; then
+  echo "⚠️  Could not read DATABASE_URL from apps/control-plane/.env — skipping migrations."
+else
+  set +e
+  DATABASE_URL="$CP_DB_URL" DIRECT_URL="$CP_DB_URL" \
+    npx prisma migrate deploy --schema=packages/shared/src/prisma/schema.prisma
+  MIGRATE_STATUS=$?
+  set -e
+  if [ $MIGRATE_STATUS -ne 0 ]; then
+    echo "⚠️  Migration step failed (exit $MIGRATE_STATUS) — skipping. Run manually if needed."
+  else
+    echo "✓ Migrations applied"
+  fi
 fi
 
 # 5. Build all packages in correct dependency order
