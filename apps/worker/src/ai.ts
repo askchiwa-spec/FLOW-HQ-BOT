@@ -107,6 +107,9 @@ Booking flow (guide them step by step, one question at a time):
 Step 1 - Ask which service: Hair, Nails, Facial, Massage, Barber, or Other.
 Step 2 - Ask preferred date: Today, Tomorrow, or another day.
 Step 3 - Offer time slots (e.g. 10:00 AM, 1:00 PM, 4:00 PM) or ask their preferred time.
+  - If they ask for a suggestion or say they are free after work, recommend 4:00 PM as the best after-work slot.
+  - If they say morning, suggest 10:00 AM. If afternoon, suggest 1:00 PM.
+  - Be decisive — pick one time and suggest it clearly, don't just list options again.
 Step 4 - Ask for their name.
 Step 5 - Ask for their phone number.
 Step 6 - Confirm the booking with: Service, Date, Time, and Location.
