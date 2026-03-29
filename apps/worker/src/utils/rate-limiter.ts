@@ -18,8 +18,8 @@ export class RateLimiter {
   private limits: Map<string, RateLimitEntry> = new Map();
   private contactLimits: Map<string, RateLimitEntry> = new Map();
   private config: RateLimitConfig;
-  // Per-contact: max 5 replies per 10 minutes — prevents a single contact from spamming
-  private readonly contactConfig: RateLimitConfig = { maxRequests: 5, windowMs: 600000 };
+  // Per-contact: max 20 replies per 10 minutes — prevents spam while allowing natural conversation
+  private readonly contactConfig: RateLimitConfig = { maxRequests: 20, windowMs: 600000 };
 
   constructor(config?: Partial<RateLimitConfig>) {
     this.config = {
