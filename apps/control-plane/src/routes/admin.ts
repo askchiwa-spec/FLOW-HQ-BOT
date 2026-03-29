@@ -128,7 +128,7 @@ router.post('/tenants', async (req: Request, res: Response) => {
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return res.status(400).json({ error: 'name is required' });
     }
-    if (!phone_number || !/^\d{7,15}$/.test(String(phone_number).replace(/\s+/g, ''))) {
+    if (!phone_number || !/^\d{7,15}$/.test(String(phone_number).replace(/[\s+\-()]/g, ''))) {
       return res.status(400).json({ error: 'phone_number must be 7–15 digits' });
     }
     if (!template_type || !VALID_TEMPLATE_TYPES.includes(template_type)) {

@@ -109,7 +109,7 @@ router.post('/setup-request', portalAuthMiddleware, async (req: Request, res: Re
     if (!templateType || !VALID_TEMPLATE_TYPES.includes(templateType)) {
       return res.status(400).json({ error: `templateType must be one of: ${VALID_TEMPLATE_TYPES.join(', ')}` });
     }
-    if (!whatsappNumber || !/^\d{7,15}$/.test(whatsappNumber.replace(/\s+/g, ''))) {
+    if (!whatsappNumber || !/^\d{7,15}$/.test(whatsappNumber.replace(/[\s+\-()]/g, ''))) {
       return res.status(400).json({ error: 'whatsappNumber must be 7–15 digits' });
     }
     if (language && !VALID_LANGUAGES.includes(language)) {
@@ -328,7 +328,7 @@ router.patch('/profile', portalAuthMiddleware, async (req: Request, res: Respons
         return res.status(400).json({ error: 'businessName must be 200 characters or fewer' });
       }
     }
-    if (whatsappNumber !== undefined && !/^\d{7,15}$/.test(whatsappNumber.replace(/\s+/g, ''))) {
+    if (whatsappNumber !== undefined && !/^\d{7,15}$/.test(whatsappNumber.replace(/[\s+\-()]/g, ''))) {
       return res.status(400).json({ error: 'whatsappNumber must be 7–15 digits' });
     }
     if (language !== undefined && !VALID_LANGUAGES.includes(language)) {
