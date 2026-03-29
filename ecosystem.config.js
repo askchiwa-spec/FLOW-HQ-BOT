@@ -14,6 +14,8 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 3100,
         PROJECT_ROOT: '/var/www/flowhq',
+        DATABASE_URL: 'postgresql://flowhq:flowhq2026@localhost:5433/flowhq',
+        DIRECT_URL: 'postgresql://flowhq:flowhq2026@localhost:5433/flowhq',
       },
       out_file: '/var/www/flowhq/logs/control-plane-out.log',
       error_file: '/var/www/flowhq/logs/control-plane-error.log',

@@ -27,6 +27,9 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
+// Trust Nginx reverse proxy (needed for express-rate-limit X-Forwarded-For)
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(helmet({ contentSecurityPolicy: false }));
 
