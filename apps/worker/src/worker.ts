@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ override: true }); // Always use .env values — overrides any stale vars baked into PM2's saved env
 
 import * as Sentry from '@sentry/node';
 import { WhatsAppBot } from './bot';

@@ -7,7 +7,7 @@ import rateLimit from 'express-rate-limit';
 import * as Sentry from '@sentry/node';
 import { notifyAdmin } from './notify';
 
-dotenv.config();
+dotenv.config({ override: true }); // Always use .env values — overrides any stale vars baked into PM2's saved env
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
