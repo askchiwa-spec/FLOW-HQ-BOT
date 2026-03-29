@@ -238,18 +238,24 @@ export async function getAIResponse(
     return { text: handoffMsg, handoff: true };
   }
 
-  // Load recent conversation history
+  // Load recent conversation history — only user/assistant roles (Anthropic rejects opt_out, handoff, etc.)
   const history = await prisma.conversationMessage.findMany({
-    where: { tenant_id: tenantId, contact },
+    where: { tenant_id: tenantId, contact, role: { in: ['user', 'assistant'] } },
     orderBy: { created_at: 'asc' },
     take: HISTORY_LIMIT,
   });
 
+  // Ensure messages alternate user→assistant and start with user (Anthropic requirement)
+  const normalized: Anthropic.MessageParam[] = [];
+  for (const h of history) {
+    const role = h.role as 'user' | 'assistant';
+    if (normalized.length === 0 && role !== 'user') continue; // must start with user
+    if (normalized.length > 0 && normalized[normalized.length - 1].role === role) continue; // no consecutive same role
+    normalized.push({ role, content: h.content });
+  }
+
   const messages: Anthropic.MessageParam[] = [
-    ...history.map((h) => ({
-      role: h.role as 'user' | 'assistant',
-      content: h.content,
-    })),
+    ...normalized,
     { role: 'user', content: userMessage },
   ];
 
