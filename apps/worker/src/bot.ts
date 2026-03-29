@@ -73,7 +73,7 @@ export class WhatsAppBot {
       puppeteer: {
         headless: true,
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome',
-        protocolTimeout: 60000,
+        protocolTimeout: 120000,
         args: [
           // Security / sandbox (required in Docker/VPS environments)
           '--no-sandbox',
@@ -91,7 +91,7 @@ export class WhatsAppBot {
           '--no-zygote',
 
           // Memory optimisation — cap V8 heap and disable unused features
-          '--js-flags=--max-old-space-size=128',
+          '--js-flags=--max-old-space-size=256',
           '--memory-pressure-off',
           '--disable-extensions',
           '--disable-background-networking',
