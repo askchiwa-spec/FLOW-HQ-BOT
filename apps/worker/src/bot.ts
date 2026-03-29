@@ -531,7 +531,7 @@ export class WhatsAppBot {
           replyText = result.text;
           handoff = result.handoff;
         } catch (aiError) {
-          this.logger.error('AI response failed, using fallback:', aiError);
+          this.logger.error({ err: aiError }, 'AI response failed, using fallback');
           replyText = this.config.language === 'SW'
             ? `Karibu ${this.config.businessName}. Samahani, kuna tatizo la muda mfupi. Tafadhali jaribu tena baadaye.`
             : `Welcome to ${this.config.businessName}. Sorry, we are experiencing a brief issue. Please try again shortly.`;
