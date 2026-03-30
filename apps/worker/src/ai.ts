@@ -242,11 +242,13 @@ export async function getAIResponse(
   }
 
   // Load recent conversation history — only user/assistant roles (Anthropic rejects opt_out, handoff, etc.)
-  const history = await prisma.conversationMessage.findMany({
+  // Fetch newest HISTORY_LIMIT messages (desc), then reverse to chronological order for the API
+  const historyRaw = await prisma.conversationMessage.findMany({
     where: { tenant_id: tenantId, contact, role: { in: ['user', 'assistant'] } },
-    orderBy: { created_at: 'asc' },
+    orderBy: { created_at: 'desc' },
     take: HISTORY_LIMIT,
   });
+  const history = historyRaw.reverse();
 
   // Ensure messages alternate user→assistant and start with user (Anthropic requirement)
   const normalized: Anthropic.MessageParam[] = [];
