@@ -11,7 +11,6 @@ const RATE_TEMPLATES = ['HOTEL', 'REAL_ESTATE', 'ECOMMERCE'];
 let rateCache: { rates: Record<string, number>; fetchedAt: number } | null = null;
 const RATE_CACHE_TTL_MS = 30 * 60 * 1000;
 
-let fetchInProgress = false;
 
 async function fetchExchangeRates(): Promise<Record<string, number>> {
   // Use open.er-api.com — free, no API key required
@@ -307,7 +306,7 @@ export async function getAIResponse(
     max_tokens: 400,
     system: buildSystemPrompt(config, exchangeRates),
     messages,
-  });
+  }, { signal: AbortSignal.timeout(30000) });
 
   const rawText = response.content[0].type === 'text' ? response.content[0].text : '';
   const handoff = rawText.includes('[HUMAN_NEEDED]');

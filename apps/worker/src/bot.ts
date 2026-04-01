@@ -161,7 +161,7 @@ export class WhatsAppBot {
 
         this.logger.info('QR code saved to database');
       } catch (error) {
-        this.logger.error('Failed to process QR code:', error);
+        this.logger.error({ err: error }, 'Failed to process QR code');
       }
     });
 
@@ -227,7 +227,7 @@ export class WhatsAppBot {
         // Start heartbeat
         this.startHeartbeat();
       } catch (error) {
-        this.logger.error('Failed to update status on ready:', error);
+        this.logger.error({ err: error }, 'Failed to update status on ready');
       }
     });
 
@@ -273,7 +273,7 @@ export class WhatsAppBot {
     });
 
     this.client.on('disconnected', async (reason) => {
-      this.logger.warn('WhatsApp client disconnected:', reason);
+      this.logger.warn({ reason }, 'WhatsApp client disconnected');
       this.isReady = false;
 
       // Stop heartbeat
@@ -299,7 +299,7 @@ export class WhatsAppBot {
         // Start reconnect process
         this.reconnectManager.start();
       } catch (error) {
-        this.logger.error('Failed to update status on disconnect:', error);
+        this.logger.error({ err: error }, 'Failed to update status on disconnect');
       }
     });
 
@@ -346,7 +346,7 @@ export class WhatsAppBot {
         this.logger.info({ templateType: this.config.templateType }, 'Config loaded');
       }
     } catch (error) {
-      this.logger.error('Failed to load config:', error);
+      this.logger.error({ err: error }, 'Failed to load config');
     }
   }
 
@@ -481,7 +481,7 @@ export class WhatsAppBot {
           try {
             await this.adapter.sendMessage(msg.from, 'Tafadhali pole pole... / Please slow down...');
           } catch (replyError) {
-            this.logger.error('Failed to send rate limit warning:', replyError);
+            this.logger.error({ err: replyError }, 'Failed to send rate limit warning');
           }
         } else {
           this.logger.warn({ tenantId: this.tenantId }, 'Rate limit exceeded, suppressing reply');
@@ -673,7 +673,7 @@ export class WhatsAppBot {
 
     } catch (error) {
       // Global error boundary - never crash the worker
-      this.logger.error('Error handling message:', error);
+      this.logger.error({ err: error }, 'Error handling message');
 
       // Log error to WorkerProcess
       try {
@@ -745,7 +745,7 @@ export class WhatsAppBot {
         // Send any due scheduled messages for this tenant
         await this.sendDueScheduledMessages();
       } catch (error) {
-        this.logger.error('Heartbeat failed:', error);
+        this.logger.error({ err: error }, 'Heartbeat failed');
       }
     }, heartbeatIntervalMs);
 
@@ -798,7 +798,7 @@ export class WhatsAppBot {
       await this.prisma.$disconnect();
       this.logger.info('Bot stopped successfully');
     } catch (error) {
-      this.logger.error('Error stopping bot:', error);
+      this.logger.error({ err: error }, 'Error stopping bot');
     }
   }
 }
