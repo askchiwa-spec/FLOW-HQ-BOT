@@ -586,9 +586,9 @@ export class WhatsAppBot {
           .then(async (extracted) => {
             if (!extracted) return;
             if ('appointment_at' in extracted || 'service' in extracted) {
-              await saveAppointment(this.prisma as any, this.tenantId, msg.from, extracted as any);
+              await saveAppointment(this.prisma as any, this.tenantId, msg.from, extracted as any, this.config.language);
             } else if ('order_summary' in extracted) {
-              await saveOrderFollowup(this.prisma as any, this.tenantId, msg.from, extracted as any);
+              await saveOrderFollowup(this.prisma as any, this.tenantId, msg.from, extracted as any, this.config.language);
             }
           })
           .catch(() => {}); // Never crash the worker

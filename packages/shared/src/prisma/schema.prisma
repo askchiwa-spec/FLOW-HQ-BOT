@@ -195,7 +195,9 @@ model User {
   emailVerified DateTime?
   image         String?
   phone         String?
-  password_hash String?
+  password_hash         String?
+  password_reset_token  String?   @unique
+  password_reset_expires DateTime?
   role          UserRole  @default(OWNER)
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt

@@ -98,7 +98,8 @@ export async function saveAppointment(
   prisma: PrismaClient,
   tenantId: string,
   contactPhone: string,
-  data: ExtractedAppointment
+  data: ExtractedAppointment,
+  language: 'SW' | 'EN' = 'SW'
 ): Promise<string | null> {
   try {
     const appt = await (prisma as any).appointment.create({
@@ -116,44 +117,53 @@ export async function saveAppointment(
     if (data.appointment_at) {
       const apptDate = new Date(data.appointment_at);
       const now = new Date();
+      const timeStr = apptDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const svc = data.service || 'appointment';
 
       const reminder24h = new Date(apptDate.getTime() - 24 * 60 * 60 * 1000);
-      const reminder2h = new Date(apptDate.getTime() - 2 * 60 * 60 * 1000);
+      const reminder2h  = new Date(apptDate.getTime() -  2 * 60 * 60 * 1000);
+      const reminder1h  = new Date(apptDate.getTime() -      60 * 60 * 1000);
+      const missedCheck = new Date(apptDate.getTime() +      60 * 60 * 1000);
 
       const messages = [];
 
       if (reminder24h > now) {
         messages.push({
-          tenant_id: tenantId,
-          contact_phone: contactPhone,
-          message: `Habari! Kukumbusha kuhusu miadi yako kesho: *${data.service || 'appointment'}* saa ${apptDate.toLocaleTimeString('sw-TZ', { hour: '2-digit', minute: '2-digit' })}. Tuko tayari kukupokea! 😊`,
-          type: 'APPOINTMENT_REMINDER_24H' as const,
-          send_at: reminder24h,
-          appointment_id: appt.id,
+          tenant_id: tenantId, contact_phone: contactPhone,
+          message: language === 'EN'
+            ? `Hi! Just a reminder about your *${svc}* appointment tomorrow at ${timeStr}. We look forward to seeing you! 😊`
+            : `Habari! Kukumbusha kuhusu miadi yako kesho: *${svc}* saa ${timeStr}. Tuko tayari kukupokea! 😊`,
+          type: 'APPOINTMENT_REMINDER_24H' as const, send_at: reminder24h, appointment_id: appt.id,
         });
       }
 
       if (reminder2h > now) {
         messages.push({
-          tenant_id: tenantId,
-          contact_phone: contactPhone,
-          message: `Habari! Miadi yako leo *${data.service || 'appointment'}* iko karibu — saa ${apptDate.toLocaleTimeString('sw-TZ', { hour: '2-digit', minute: '2-digit' })}. Tutakusubiri! 🙏`,
-          type: 'APPOINTMENT_REMINDER_2H' as const,
-          send_at: reminder2h,
-          appointment_id: appt.id,
+          tenant_id: tenantId, contact_phone: contactPhone,
+          message: language === 'EN'
+            ? `Hi! Your *${svc}* appointment is in 2 hours at ${timeStr}. See you soon! 🙏`
+            : `Habari! Miadi yako ya *${svc}* iko karibu — saa ${timeStr}. Tutakusubiri! 🙏`,
+          type: 'APPOINTMENT_REMINDER_2H' as const, send_at: reminder2h, appointment_id: appt.id,
+        });
+      } else if (reminder1h > now) {
+        // Fallback for same-day bookings — schedule a 1-hour reminder instead
+        messages.push({
+          tenant_id: tenantId, contact_phone: contactPhone,
+          message: language === 'EN'
+            ? `Hi! Just a reminder — your *${svc}* appointment is in 1 hour at ${timeStr}. See you soon! 🙏`
+            : `Habari! Miadi yako ya *${svc}* iko karibu saa moja — saa ${timeStr}. Tutakusubiri! 🙏`,
+          type: 'APPOINTMENT_REMINDER_2H' as const, send_at: reminder1h, appointment_id: appt.id,
         });
       }
 
       // Missed appointment check — 1 hour after appointment time
-      const missedCheck = new Date(apptDate.getTime() + 60 * 60 * 1000);
       if (missedCheck > now) {
         messages.push({
-          tenant_id: tenantId,
-          contact_phone: contactPhone,
-          message: `Habari! Tulikukosa leo kwa miadi yako ya *${data.service || 'appointment'}*. Je, ungependa kuweka miadi mpya? Tafadhali tuambie. 🙏`,
-          type: 'APPOINTMENT_MISSED' as const,
-          send_at: missedCheck,
-          appointment_id: appt.id,
+          tenant_id: tenantId, contact_phone: contactPhone,
+          message: language === 'EN'
+            ? `Hi! We missed you today for your *${svc}* appointment. Would you like to reschedule? We'd love to see you. 🙏`
+            : `Habari! Tulikukosa leo kwa miadi yako ya *${svc}*. Je, ungependa kuweka miadi mpya? Tafadhali tuambie. 🙏`,
+          type: 'APPOINTMENT_MISSED' as const, send_at: missedCheck, appointment_id: appt.id,
         });
       }
 
@@ -172,7 +182,8 @@ export async function saveOrderFollowup(
   prisma: PrismaClient,
   tenantId: string,
   contactPhone: string,
-  data: ExtractedOrder
+  data: ExtractedOrder,
+  language: 'SW' | 'EN' = 'SW'
 ): Promise<string | null> {
   try {
     const now = new Date();
@@ -194,7 +205,9 @@ export async function saveOrderFollowup(
         {
           tenant_id: tenantId,
           contact_phone: contactPhone,
-          message: `Habari! Order yako imepokelewa. Je, una maswali yoyote? Tuko hapa kukusaidia. 😊`,
+          message: language === 'EN'
+            ? `Hi! Your order has been received. Do you have any questions? We're here to help. 😊`
+            : `Habari! Order yako imepokelewa. Je, una maswali yoyote? Tuko hapa kukusaidia. 😊`,
           type: 'ORDER_FOLLOWUP' as const,
           send_at: followup30min,
           followup_id: order.id,
@@ -202,7 +215,9 @@ export async function saveOrderFollowup(
         {
           tenant_id: tenantId,
           contact_phone: contactPhone,
-          message: `Habari tena! Tunakagua order yako: *${data.order_summary}*. Je, iko sawa? Jibu YES kuthibitisha au NO kufuta.`,
+          message: language === 'EN'
+            ? `Hi again! Checking on your order: *${data.order_summary}*. Is everything okay? Reply YES to confirm or NO to cancel.`
+            : `Habari tena! Tunakagua order yako: *${data.order_summary}*. Je, iko sawa? Jibu YES kuthibitisha au NO kufuta.`,
           type: 'ORDER_FOLLOWUP' as const,
           send_at: followup3h,
           followup_id: order.id,
@@ -210,7 +225,9 @@ export async function saveOrderFollowup(
         {
           tenant_id: tenantId,
           contact_phone: contactPhone,
-          message: `Habari! Bado tunasubiri uthibitisho wa order yako. Order itafutwa baada ya saa 24 kama hakuna jibu. Jibu YES kuthibitisha au NO kufuta.`,
+          message: language === 'EN'
+            ? `Hi! We're still waiting for your order confirmation. The order will be cancelled after 24 hours if there is no reply. Reply YES to confirm or NO to cancel.`
+            : `Habari! Bado tunasubiri uthibitisho wa order yako. Order itafutwa baada ya saa 24 kama hakuna jibu. Jibu YES kuthibitisha au NO kufuta.`,
           type: 'ORDER_FOLLOWUP' as const,
           send_at: followup24h,
           followup_id: order.id,

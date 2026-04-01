@@ -2,6 +2,7 @@
 
 import { getCsrfToken, signIn } from 'next-auth/react';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 interface SignInButtonProps {
   provider: {
@@ -120,6 +121,13 @@ export default function SignInButton({ provider }: SignInButtonProps) {
       >
         {loading ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}
       </button>
+      {mode === 'login' && (
+        <p className="text-center">
+          <Link href="/auth/forgot-password" className="text-slate-500 hover:text-slate-400 text-xs">
+            Forgot password?
+          </Link>
+        </p>
+      )}
       <p className="text-center text-sm text-slate-500">
         {mode === 'login' ? (
           <>No account?{' '}
