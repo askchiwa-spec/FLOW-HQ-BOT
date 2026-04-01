@@ -195,6 +195,66 @@ router.get('/', portalAuthMiddleware, async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /portal/documents/:id
+ * Fetch full content of a single document (used for editing text entries)
+ */
+router.get('/:id', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const doc = await prisma.businessDocument.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, filename: true, file_type: true, content_text: true, tenant_id: true },
+    });
+
+    if (!doc || doc.tenant_id !== tenantId) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    res.json({ id: doc.id, filename: doc.filename, file_type: doc.file_type, content_text: doc.content_text });
+  } catch (error) {
+    logger.error('Error fetching document:', error);
+    res.status(500).json({ error: 'Failed to fetch document' });
+  }
+});
+
+/**
+ * PATCH /portal/documents/:id
+ * Update the content and/or label of a text document
+ */
+router.patch('/:id', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const doc = await prisma.businessDocument.findUnique({ where: { id: req.params.id } });
+
+    if (!doc || doc.tenant_id !== tenantId) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+    if (doc.file_type !== 'text') {
+      return res.status(400).json({ error: 'Only text documents can be edited inline. For files, delete and re-upload.' });
+    }
+
+    const { content, label } = req.body;
+    if (!content || !content.trim()) return res.status(400).json({ error: 'content is required' });
+    if (content.length > 100_000) return res.status(400).json({ error: 'content must be 100,000 characters or fewer' });
+
+    await prisma.businessDocument.update({
+      where: { id: req.params.id },
+      data: {
+        content_text: content.trim(),
+        filename: label?.trim() || doc.filename,
+      },
+    });
+
+    await rebuildBusinessContext(tenantId);
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error updating document:', error);
+    res.status(500).json({ error: 'Failed to update document' });
+  }
+});
+
+/**
  * POST /portal/documents/text
  * Save raw typed text directly as a knowledge source (no file upload needed)
  */

@@ -11,6 +11,12 @@ interface Doc {
   created_at: string;
 }
 
+interface EditState {
+  id: string;
+  label: string;
+  content: string;
+}
+
 const FILE_ICONS: Record<string, string> = {
   pdf: '📄',
   docx: '📝',
@@ -33,6 +39,8 @@ export default function KnowledgePage() {
   const [textLoading, setTextLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [editState, setEditState] = useState<EditState | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchDocs = async () => {
@@ -143,6 +151,40 @@ export default function KnowledgePage() {
       setError(err.message || 'Failed to save text.');
     } finally {
       setTextLoading(false);
+    }
+  };
+
+  const handleEdit = async (doc: Doc) => {
+    setError(null);
+    try {
+      const res = await fetch(`/api/portal/documents/${doc.id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load');
+      setEditState({ id: doc.id, label: data.filename, content: data.content_text || '' });
+    } catch {
+      setError('Failed to load document content.');
+    }
+  };
+
+  const handleEditSave = async () => {
+    if (!editState || !editState.content.trim()) return;
+    setEditLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/portal/documents/${editState.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: editState.content, label: editState.label }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save');
+      setEditState(null);
+      showSuccess('Knowledge updated successfully.');
+      await fetchDocs();
+    } catch (err: any) {
+      setError(err.message || 'Failed to save changes.');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -360,6 +402,17 @@ export default function KnowledgePage() {
                     {doc.file_type.toUpperCase()} · {new Date(doc.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
                 </div>
+                {doc.file_type === 'text' && (
+                  <button
+                    onClick={() => handleEdit(doc)}
+                    className="p-2 rounded-lg text-slate-600 hover:text-primary-400 hover:bg-primary-500/10 transition-all"
+                    title="Edit"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                )}
                 <button
                   onClick={() => handleDelete(doc)}
                   className="p-2 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
@@ -374,6 +427,56 @@ export default function KnowledgePage() {
           </ul>
         )}
       </motion.div>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {editState && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setEditState(null); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-dark-800 border border-white/10 rounded-2xl p-6 w-full max-w-2xl shadow-2xl"
+            >
+              <h3 className="text-lg font-semibold text-white mb-4">Edit Knowledge Entry</h3>
+              <input
+                type="text"
+                value={editState.label}
+                onChange={(e) => setEditState({ ...editState, label: e.target.value })}
+                placeholder="Label (e.g. Product List)"
+                className="w-full bg-dark-700/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-primary-500/50 mb-3"
+              />
+              <textarea
+                value={editState.content}
+                onChange={(e) => setEditState({ ...editState, content: e.target.value })}
+                rows={12}
+                className="w-full bg-dark-700/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-primary-500/50 resize-none mb-4"
+              />
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setEditState(null)}
+                  className="px-5 py-2.5 text-sm text-slate-400 hover:text-white border border-white/10 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditSave}
+                  disabled={editLoading || !editState.content.trim()}
+                  className="px-5 py-2.5 text-sm bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-medium disabled:opacity-50 transition-colors"
+                >
+                  {editLoading ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Info Banner */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
