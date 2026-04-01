@@ -204,14 +204,21 @@ When a customer first messages, greet them and offer:
 4. Store location
 5. Speak to seller
 
-Product flow: Show categories (e.g. Smartphones, Accessories, Clothing, Offers). When they choose a category, list available items with prices. Let them select an item and quantity.
+Product flow: Show categories based on the business knowledge base. When they choose a category, list available items with prices. Let them select an item and quantity.
 
 Order flow (step by step):
 Step 1 - Ask: Pickup or Delivery?
-If Delivery: Ask for full name, phone number, and delivery location. Confirm: "Your order has been received. Our team will contact you to confirm payment and delivery."
-If Pickup: Confirm the reservation and share the store address. Say: "Please visit within 24 hours."
+Step 2 - Collect customer details:
+  If Delivery: Ask for full name, phone number, and delivery address.
+  If Pickup: Ask for full name and phone number.
+Step 3 - Ask for preferred payment method: M-Pesa, Cash on Delivery, or Bank Transfer.
+Step 4 - Summarise the order: list items, quantities, total price, delivery method, and payment method.
+Step 5 - Ask: "Confirm order? Reply YES to confirm or NO to cancel."
+Step 6 - When customer confirms, reply with exactly: "Order received! Our team will contact you shortly to arrange payment and delivery. Thank you for ordering from [Business Name]! 🙏"
+  If Pickup, reply: "Order received! Please visit our store within 24 hours. Thank you! 🙏"
 
-Always collect the product, quantity, and delivery method before confirming.`,
+Always collect: product + quantity + customer name + phone + delivery method + payment method before confirming.
+Never confirm an order without a clear YES from the customer.`,
 
     SUPPORT: 'You provide customer support: troubleshoot issues, answer FAQs, and escalate serious complaints to a human agent. When a customer first messages, greet them and ask how you can help. If you cannot resolve their issue, offer to connect them with a human agent.',
     BOOKING: 'You help customers book appointments and services. Collect: service name, preferred date/time, name, and phone number. Confirm the booking details at the end.',

@@ -515,6 +515,53 @@ export class WhatsAppBot {
         return;
       }
 
+      // Order YES/NO handler — intercept before AI when customer has an active order followup.
+      // Avoids AI mishandling "YES"/"NO" and ensures order status is updated correctly.
+      if (this.config && ['ECOMMERCE', 'RESTAURANT'].includes(this.config.templateType)) {
+        const lowerBody = body.toLowerCase().trim();
+        const isYes = ['yes', 'ndio', 'confirm', 'ok', 'okay', 'sawa', 'ndiyo'].includes(lowerBody);
+        const isNo  = ['no', 'hapana', 'cancel', 'futa', 'sitaki'].includes(lowerBody);
+
+        if (isYes || isNo) {
+          const activeFollowup = await (this.prisma as any).orderFollowup.findFirst({
+            where: { tenant_id: this.tenantId, contact_phone: msg.from, status: 'ACTIVE' },
+            orderBy: { created_at: 'desc' },
+          }).catch(() => null);
+
+          if (activeFollowup) {
+            if (isYes) {
+              await (this.prisma as any).orderFollowup.update({
+                where: { id: activeFollowup.id },
+                data: { status: 'CONFIRMED' },
+              }).catch(() => {});
+              await (this.prisma as any).scheduledMessage.deleteMany({
+                where: { tenant_id: this.tenantId, contact_phone: msg.from, sent_at: null, type: 'ORDER_FOLLOWUP' },
+              }).catch(() => {});
+              const confirmMsg = lang === 'SW'
+                ? `Asante! Order yako imethibitishwa. Timu yetu itakuwasiliana nawe hivi karibuni kuhusu malipo na uwasilishaji. 🙏`
+                : `Thank you! Your order is confirmed. Our team will reach out shortly for payment and delivery. 🙏`;
+              await this.adapter.sendMessage(msg.from, confirmMsg);
+              this.logger.info({ contact: msg.from, orderId: activeFollowup.id }, 'Order confirmed by customer');
+              await notifyAdmin(`Order CONFIRMED by customer ${msg.from}.\nOrder: ${activeFollowup.order_summary}`, 'Order Confirmed');
+            } else {
+              await (this.prisma as any).orderFollowup.update({
+                where: { id: activeFollowup.id },
+                data: { status: 'CANCELLED' },
+              }).catch(() => {});
+              await (this.prisma as any).scheduledMessage.deleteMany({
+                where: { tenant_id: this.tenantId, contact_phone: msg.from, sent_at: null, type: 'ORDER_FOLLOWUP' },
+              }).catch(() => {});
+              const cancelMsg = lang === 'SW'
+                ? `Sawa, order yako imefutwa. Ikiwa unahitaji msaada wowote, tuma ujumbe tena. 😊`
+                : `No problem, your order has been cancelled. Feel free to message us again when you're ready. 😊`;
+              await this.adapter.sendMessage(msg.from, cancelMsg);
+              this.logger.info({ contact: msg.from, orderId: activeFollowup.id }, 'Order cancelled by customer');
+            }
+            return; // Don't let AI process this further
+          }
+        }
+      }
+
       // Get response using Claude AI
       if (!this.config) {
         await this.loadConfig();
@@ -602,11 +649,12 @@ export class WhatsAppBot {
           .catch(() => {}); // Never crash the worker
       }
 
-      // Handle order cancellation from customer
+      // "stop order" / "futa order" as standalone phrases — cancel active order regardless of context
+      // (YES/NO handling with active-followup context already runs before AI above)
       if (this.config) {
-        const cancelKeywords = ['cancel', 'futa', 'sitaki', 'hapana', 'no', 'stop order', 'futa order'];
-        const lowerBody = (msg.body || '').toLowerCase();
-        if (cancelKeywords.some((k) => lowerBody.includes(k))) {
+        const hardCancelPhrases = ['stop order', 'futa order', 'cancel order'];
+        const lowerBody = body.toLowerCase();
+        if (hardCancelPhrases.some((k) => lowerBody.includes(k))) {
           await (this.prisma as any).orderFollowup.updateMany({
             where: { tenant_id: this.tenantId, contact_phone: msg.from, status: 'ACTIVE' },
             data: { status: 'CANCELLED' },

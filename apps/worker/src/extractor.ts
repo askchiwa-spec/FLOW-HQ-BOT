@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { PrismaClient } from '@chatisha/shared';
+import { notifyAdmin } from './notify';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -35,8 +36,10 @@ export async function extractBookingDetails(
 
   const confirmationKeywords = [
     'confirmed', 'booked', 'imewekwa', 'imethibitishwa', 'nimeweka',
-    'booking confirmed', 'appointment confirmed', 'order received', 'imepokelewa',
-    'tutakusubiri', 'asante kwa booking', 'asante kwa order',
+    'booking confirmed', 'appointment confirmed',
+    'order received', 'order confirmed',      // ECOMMERCE EN confirmations
+    'imepokelewa', 'asante kwa order',        // ECOMMERCE SW confirmations
+    'tutakusubiri', 'asante kwa booking',
   ];
   const hasConfirmation = confirmationKeywords.some((kw) =>
     lastBotMessage.content.toLowerCase().includes(kw)
@@ -186,6 +189,13 @@ export async function saveOrderFollowup(
   language: 'SW' | 'EN' = 'SW'
 ): Promise<string | null> {
   try {
+    // Deduplication: don't create another followup if one is already ACTIVE for this contact
+    const existing = await (prisma as any).orderFollowup.findFirst({
+      where: { tenant_id: tenantId, contact_phone: contactPhone, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (existing) return existing.id; // already tracking this order
+
     const now = new Date();
     const followup30min = new Date(now.getTime() + 30 * 60 * 1000);
     const followup3h = new Date(now.getTime() + 3 * 60 * 60 * 1000);
@@ -234,6 +244,12 @@ export async function saveOrderFollowup(
         },
       ],
     });
+
+    // Notify business owner about the new order
+    await notifyAdmin(
+      `New order from ${contactPhone}:\n${data.order_summary}`,
+      'New Order Received'
+    );
 
     return order.id;
   } catch {
