@@ -582,13 +582,14 @@ export class WhatsAppBot {
           take: 20,
         });
         const conversation = recentHistory.map((m) => ({ role: m.role, content: m.content }));
-        extractBookingDetails(conversation, this.config.templateType)
+        const configSnapshot = this.config;
+        extractBookingDetails(conversation, configSnapshot.templateType)
           .then(async (extracted) => {
             if (!extracted) return;
             if ('appointment_at' in extracted || 'service' in extracted) {
-              await saveAppointment(this.prisma as any, this.tenantId, msg.from, extracted as any, this.config.language);
+              await saveAppointment(this.prisma as any, this.tenantId, msg.from, extracted as any, configSnapshot.language);
             } else if ('order_summary' in extracted) {
-              await saveOrderFollowup(this.prisma as any, this.tenantId, msg.from, extracted as any, this.config.language);
+              await saveOrderFollowup(this.prisma as any, this.tenantId, msg.from, extracted as any, configSnapshot.language);
             }
           })
           .catch(() => {}); // Never crash the worker
