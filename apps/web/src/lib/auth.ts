@@ -59,6 +59,10 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      // Allow Google to link to an existing account with the same email (e.g. a user
+      // who previously registered via email/password tries Google with the same address).
+      // Without this, NextAuth throws OAuthAccountNotLinked and blocks them.
+      allowDangerousEmailAccountLinking: true,
     }),
     CredentialsProvider({
       id: 'credentials',
@@ -95,25 +99,32 @@ export const authOptions: NextAuthOptions = {
         token.userId = user.id;
       }
 
-      // Always refresh tenantId/role from DB when missing or on first sign-in.
-      // This fixes the race condition where createUser event (which links the tenant)
-      // may not have completed before the JWT was first minted, leaving tenantId null.
+      // Refresh tenantId/role/hasSetupRequest from DB on first sign-in or when missing.
+      // This fixes the race where createUser event may not have completed before the JWT
+      // was first minted, leaving tenantId null.
       const userId = (token.userId ?? user?.id) as string | undefined;
-      if (userId && !token.tenantId) {
+      if (userId && (!token.tenantId || user)) {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: userId },
-            select: { tenant_id: true, role: true, name: true },
+            select: {
+              tenant_id: true,
+              role: true,
+              name: true,
+              tenant: { select: { setup_requests: { select: { id: true }, take: 1 } } },
+            },
           });
           if (dbUser?.tenant_id) {
             token.tenantId = dbUser.tenant_id;
             token.role = dbUser.role;
+            token.hasSetupRequest = (dbUser.tenant?.setup_requests?.length ?? 0) > 0;
           } else {
             // createUser event failed — self-heal by creating tenant now
             const tenantId = await ensureTenant(userId, dbUser?.name ?? null);
             if (tenantId) {
               token.tenantId = tenantId;
               token.role = 'OWNER';
+              token.hasSetupRequest = false;
             }
           }
         } catch {
@@ -128,6 +139,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).id = token.userId;
         (session.user as any).tenantId = token.tenantId;
         (session.user as any).role = token.role;
+        (session.user as any).hasSetupRequest = token.hasSetupRequest ?? false;
       }
       return session;
     },

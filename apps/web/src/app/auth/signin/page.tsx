@@ -13,22 +13,27 @@ const ERROR_MESSAGES: Record<string, string> = {
   default: 'Sign-in failed. Please try again.',
 };
 
-export default async function SignInPage({ searchParams }: { searchParams: { error?: string } }) {
+export default async function SignInPage({ searchParams }: { searchParams: { error?: string; callbackUrl?: string } }) {
   const session = await getServerSession(authOptions);
 
   if (session) {
-    redirect('/app/onboarding');
+    const hasSetup = (session.user as any)?.hasSetupRequest;
+    redirect(hasSetup ? '/app/status' : '/app/onboarding');
   }
 
   const error = searchParams?.error;
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.default) : null;
+  // Honour any callbackUrl from the query string (e.g. middleware redirect), otherwise
+  // let NextAuth decide (/app/onboarding for new users, /app/status for returning ones
+  // via the newUser page setting on the auth config).
+  const callbackUrl = searchParams?.callbackUrl ?? '/app/onboarding';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-dark-900 relative overflow-hidden">
       {/* Background gradient orbs */}
       <div className="absolute top-1/4 right-0 w-96 h-96 bg-primary-500/20 rounded-full blur-3xl" />
       <div className="absolute bottom-1/4 left-0 w-96 h-96 bg-secondary-500/20 rounded-full blur-3xl" />
-      
+
       {/* Circuit pattern overlay */}
       <div className="absolute inset-0 opacity-10">
         <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -66,13 +71,13 @@ export default async function SignInPage({ searchParams }: { searchParams: { err
         {/* Sign in card */}
         <div className="bg-dark-800/50 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
           <div className="space-y-4">
-            <SignInButton provider={{ id: 'google', name: 'Google' }} />
+            <SignInButton provider={{ id: 'google', name: 'Google' }} callbackUrl={callbackUrl} />
             <div className="flex items-center gap-3">
               <div className="flex-1 h-px bg-white/10" />
               <span className="text-xs text-slate-500 font-medium">OR</span>
               <div className="flex-1 h-px bg-white/10" />
             </div>
-            <SignInButton provider={{ id: 'credentials', name: 'Email & Password' }} />
+            <SignInButton provider={{ id: 'credentials', name: 'Email & Password' }} callbackUrl={callbackUrl} />
           </div>
         </div>
 
