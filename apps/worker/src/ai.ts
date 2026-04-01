@@ -11,25 +11,40 @@ const RATE_TEMPLATES = ['HOTEL', 'REAL_ESTATE', 'ECOMMERCE'];
 let rateCache: { rates: Record<string, number>; fetchedAt: number } | null = null;
 const RATE_CACHE_TTL_MS = 30 * 60 * 1000;
 
+let fetchInProgress = false;
+
 async function fetchExchangeRates(): Promise<Record<string, number>> {
   // Use open.er-api.com — free, no API key required
   return new Promise((resolve) => {
-    https.get('https://open.er-api.com/v6/latest/TZS', (res) => {
+    let settled = false;
+    const done = (result: Record<string, number>) => {
+      if (!settled) { settled = true; resolve(result); }
+    };
+
+    // Hard 5-second timeout — if the API hangs, resolve with empty rather than freezing
+    const timer = setTimeout(() => done({}), 5000);
+
+    const req = https.get('https://open.er-api.com/v6/latest/TZS', (res) => {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
+        clearTimeout(timer);
         try {
           const json = JSON.parse(data);
           if (json.result === 'success' && json.rates) {
-            resolve(json.rates);
+            done(json.rates);
           } else {
-            resolve({});
+            done({});
           }
         } catch {
-          resolve({});
+          done({});
         }
       });
-    }).on('error', () => resolve({}));
+      res.on('error', () => { clearTimeout(timer); done({}); });
+    });
+
+    req.on('error', () => { clearTimeout(timer); done({}); });
+    req.setTimeout(5000, () => { req.destroy(); done({}); });
   });
 }
 
@@ -250,9 +265,12 @@ export async function getAIResponse(
   });
   const history = historyRaw.reverse();
 
-  // Ensure messages alternate user→assistant and start with user (Anthropic requirement)
+  // Ensure messages alternate user→assistant, start with user, and have non-empty content.
+  // Empty content comes from voice notes / images / stickers stored as "" in the DB —
+  // Anthropic rejects any message where content is empty (400 invalid_request_error).
   const normalized: Anthropic.MessageParam[] = [];
   for (const h of history) {
+    if (!h.content.trim()) continue; // skip empty-content messages (media/sticker ghosts)
     const role = h.role as 'user' | 'assistant';
     if (normalized.length === 0 && role !== 'user') continue; // must start with user
     if (normalized.length > 0 && normalized[normalized.length - 1].role === role) continue; // no consecutive same role
@@ -280,23 +298,27 @@ export async function getAIResponse(
   const handoff = rawText.includes('[HUMAN_NEEDED]');
   const text = rawText.replace('[HUMAN_NEEDED]', '').trim();
 
-  // Persist this exchange to conversation history
-  await prisma.conversationMessage.createMany({
-    data: [
-      { tenant_id: tenantId, contact, role: 'user', content: userMessage },
-      { tenant_id: tenantId, contact, role: 'assistant', content: text },
-    ],
-  });
+  // Persist this exchange to conversation history (only non-empty content)
+  const messagesToStore = [
+    userMessage.trim() ? { tenant_id: tenantId, contact, role: 'user', content: userMessage } : null,
+    text.trim() ? { tenant_id: tenantId, contact, role: 'assistant', content: text } : null,
+  ].filter(Boolean) as { tenant_id: string; contact: string; role: string; content: string }[];
 
-  // Trim old history to keep last 20 messages per contact (avoid unbounded growth)
-  const allMsgs = await prisma.conversationMessage.findMany({
-    where: { tenant_id: tenantId, contact },
-    orderBy: { created_at: 'asc' },
-    select: { id: true },
-  });
-  if (allMsgs.length > 20) {
-    const toDelete = allMsgs.slice(0, allMsgs.length - 20).map((m) => m.id);
-    await prisma.conversationMessage.deleteMany({ where: { id: { in: toDelete } } });
+  if (messagesToStore.length > 0) {
+    await prisma.conversationMessage.createMany({
+      data: messagesToStore,
+    });
+
+    // Trim old history to keep last 20 messages per contact (avoid unbounded growth)
+    const allMsgs = await prisma.conversationMessage.findMany({
+      where: { tenant_id: tenantId, contact },
+      orderBy: { created_at: 'asc' },
+      select: { id: true },
+    });
+    if (allMsgs.length > 20) {
+      const toDelete = allMsgs.slice(0, allMsgs.length - 20).map((m) => m.id);
+      await prisma.conversationMessage.deleteMany({ where: { id: { in: toDelete } } });
+    }
   }
 
   return { text, handoff };

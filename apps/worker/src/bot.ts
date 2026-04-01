@@ -508,6 +508,13 @@ export class WhatsAppBot {
         }
       }
 
+      // Skip AI entirely for media/sticker/voice messages with no text body.
+      // An empty body would be stored as "" in history and cause Anthropic 400 errors.
+      if (!body) {
+        this.logger.info({ contact: msg.from }, 'Skipping empty-body message (media/sticker/voice)');
+        return;
+      }
+
       // Get response using Claude AI
       if (!this.config) {
         await this.loadConfig();
@@ -524,7 +531,7 @@ export class WhatsAppBot {
           const result = await getAIResponse(
             this.tenantId,
             msg.from,
-            msg.body || '',
+            body,
             this.config,
             this.prisma
           );
