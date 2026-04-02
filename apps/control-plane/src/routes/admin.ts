@@ -182,7 +182,8 @@ router.get('/tenants/:id', async (req: Request, res: Response) => {
       include: {
         config: true,
         whatsapp_session: true,
-        worker_process: true
+        worker_process: true,
+        setup_requests: { orderBy: { created_at: 'desc' }, take: 1 },
       }
     });
     

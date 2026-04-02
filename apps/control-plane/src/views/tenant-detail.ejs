@@ -204,6 +204,10 @@
             <div class="info-value"><%= tenant.phone_number || '—' %></div>
           </div>
           <div class="info-row">
+            <div class="info-label">Email</div>
+            <div class="info-value normal"><%= tenant.setup_requests?.[0]?.email || '—' %></div>
+          </div>
+          <div class="info-row">
             <div class="info-label">Template</div>
             <div class="info-value normal"><%= tenant.config?.template_type || '—' %></div>
           </div>
