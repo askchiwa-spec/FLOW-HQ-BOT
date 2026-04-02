@@ -31,6 +31,8 @@ export class WhatsAppBot {
   private reconnectManager: ReconnectManager;
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private qrExpiryTimeout: NodeJS.Timeout | null = null;
+  private consecutiveSendFailures: number = 0;
+  private readonly MAX_SEND_FAILURES = 3;
 
   constructor(tenantId: string, sessionsPath: string) {
     this.tenantId = tenantId;
@@ -604,6 +606,9 @@ export class WhatsAppBot {
       // Send reply via adapter — swap adapter to migrate to Cloud API
       const { messageId } = await this.adapter.sendMessage(msg.from, signedReply);
 
+      // Successful send — reset failure counter
+      this.consecutiveSendFailures = 0;
+
       // If handoff needed, persist state and stop bot from replying further
       if (handoff) {
         this.handoffContacts.add(msg.from);
@@ -675,6 +680,30 @@ export class WhatsAppBot {
       // Global error boundary - never crash the worker
       this.logger.error({ err: error }, 'Error handling message');
 
+      // Detect Chrome page degradation: sendMessage timeouts indicate Puppeteer can
+      // receive events but can no longer execute JS. Force-restart after 3 in a row.
+      const isSendTimeout = error instanceof Error && error.message.includes('sendMessage timed out');
+      if (isSendTimeout) {
+        this.consecutiveSendFailures++;
+        this.logger.warn({ consecutiveSendFailures: this.consecutiveSendFailures }, 'sendMessage timed out — Chrome page may be degraded');
+        if (this.consecutiveSendFailures >= this.MAX_SEND_FAILURES) {
+          this.logger.error({ tenantId: this.tenantId }, `${this.MAX_SEND_FAILURES} consecutive sendMessage timeouts — restarting Chrome`);
+          this.consecutiveSendFailures = 0;
+          // Destroy and reinitialize the WhatsApp client to recover from degraded Chrome state
+          this.isReady = false;
+          this.stopHeartbeat();
+          this.client.destroy().catch(() => {}).finally(() => {
+            this.client.initialize().catch((initErr) => {
+              this.logger.error({ err: initErr }, 'Failed to reinitialize after send failure — PM2 will restart');
+              process.exit(1);
+            });
+          });
+          return;
+        }
+      } else {
+        this.consecutiveSendFailures = 0;
+      }
+
       // Log error to WorkerProcess
       try {
         await this.prisma.workerProcess.update({
@@ -684,7 +713,7 @@ export class WhatsAppBot {
           }
         });
       } catch (dbError) {
-        this.logger.error('Failed to log error to database:', dbError);
+        this.logger.error({ err: dbError }, 'Failed to log error to database');
       }
 
       // Continue processing other messages - don't throw
