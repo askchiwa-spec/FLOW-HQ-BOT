@@ -689,6 +689,10 @@ export class WhatsAppBot {
         if (this.consecutiveSendFailures >= this.MAX_SEND_FAILURES) {
           this.logger.error({ tenantId: this.tenantId }, `${this.MAX_SEND_FAILURES} consecutive sendMessage timeouts — restarting Chrome`);
           this.consecutiveSendFailures = 0;
+          await notifyAdmin(
+            `⚠️ Bot degraded: ${this.config?.businessName ?? this.tenantId.slice(0, 8)} — sendMessage hung ${this.MAX_SEND_FAILURES}x in a row.\nRestarting Chrome session automatically.`,
+            'Bot Auto-Recovery'
+          );
           // Destroy and reinitialize the WhatsApp client to recover from degraded Chrome state
           this.isReady = false;
           this.stopHeartbeat();
