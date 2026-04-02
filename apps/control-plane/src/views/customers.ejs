@@ -197,7 +197,7 @@
                     <%= c.name || 'Unknown' %>
                   </a>
                 </td>
-                <td class="phone"><%= c.phone.replace('@c.us', '') %></td>
+                <td class="phone"><%= c.phone.replace('@c.us', '').replace('@lid', '') %></td>
                 <td>
                   <span class="badge badge-<%= c.request_type.toLowerCase() %>">
                     <%= c.request_type.replace('_', ' ') %>

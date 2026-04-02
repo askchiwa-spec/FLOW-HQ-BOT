@@ -15,6 +15,8 @@ export async function upsertCustomer(
   botReply: string
 ): Promise<void> {
   try {
+    // Normalize phone: strip WhatsApp suffixes so @c.us and @lid contacts don't create duplicates
+    phone = phone.replace('@c.us', '').replace('@lid', '');
     const requestType = REQUEST_TYPE_MAP[templateType] ?? 'GENERAL';
 
     // Detect if the last bot message asked for the customer's name
