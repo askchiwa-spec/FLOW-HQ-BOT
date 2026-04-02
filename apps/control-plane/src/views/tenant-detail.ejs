@@ -205,7 +205,7 @@
           </div>
           <div class="info-row">
             <div class="info-label">Email</div>
-            <div class="info-value normal"><%= tenant.setup_requests?.[0]?.email || '—' %></div>
+            <div class="info-value normal"><%= tenant.setup_requests?.[0]?.user?.email || '—' %></div>
           </div>
           <div class="info-row">
             <div class="info-label">Template</div>

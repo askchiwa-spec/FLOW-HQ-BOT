@@ -183,7 +183,7 @@ router.get('/tenants/:id', async (req: Request, res: Response) => {
         config: true,
         whatsapp_session: true,
         worker_process: true,
-        setup_requests: { orderBy: { created_at: 'desc' }, take: 1 },
+        setup_requests: { orderBy: { created_at: 'desc' }, take: 1, include: { user: { select: { email: true, name: true } } } },
       }
     });
     
