@@ -9,10 +9,10 @@ on:
   # Allow manual trigger from GitHub UI regardless of CI
   workflow_dispatch:
 
-# Only one deploy runs at a time
+# Only the latest deploy runs — cancel any queued ones so rapid pushes don't pile up
 concurrency:
   group: deploy-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
