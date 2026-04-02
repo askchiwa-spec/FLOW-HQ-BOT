@@ -5,7 +5,11 @@ export class WwebjsAdapter implements MessagingAdapter {
   constructor(private client: Client) {}
 
   async sendMessage(to: string, text: string): Promise<OutboundResult> {
-    const sent = await this.client.sendMessage(to, text);
+    const TIMEOUT_MS = 25000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`sendMessage timed out after ${TIMEOUT_MS}ms for ${to}`)), TIMEOUT_MS)
+    );
+    const sent = await Promise.race([this.client.sendMessage(to, text), timeoutPromise]);
     return { messageId: sent.id.id };
   }
 
