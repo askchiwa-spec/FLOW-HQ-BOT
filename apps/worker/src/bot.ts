@@ -234,7 +234,10 @@ export class WhatsAppBot {
     });
 
     this.client.on('message', async (msg) => {
-      if (!this.isReady) return;
+      if (!this.isReady) {
+        this.logger.warn({ from: msg.from }, 'Message received before ready — dropped (bot still initializing)');
+        return;
+      }
 
       // Skip messages from self
       if (msg.fromMe) return;
