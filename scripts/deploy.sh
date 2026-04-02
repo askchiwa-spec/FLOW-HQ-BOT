@@ -120,9 +120,26 @@ except:
     pass
 " 2>/dev/null)
 if [ -n "$WORKER_NAMES" ]; then
+  # Load DB URL for QR_PENDING check
+  CP_DB_URL_W=$(grep "^DATABASE_URL=" apps/control-plane/.env 2>/dev/null | cut -d= -f2-)
   for W in $WORKER_NAMES; do
-    echo "  Restarting $W..."
-    pm2 restart "$W" --update-env 2>/dev/null || echo "  ⚠️  Could not restart $W"
+    # Extract tenant ID from worker name (format: worker-<timestamp>)
+    # Skip workers whose WhatsApp session is in QR_PENDING/QR_READY state — restarting would invalidate a live QR scan
+    SKIP=0
+    if [ -n "$CP_DB_URL_W" ]; then
+      WA_STATE=$(psql "$CP_DB_URL_W" -tAc "
+        SELECT ws.state FROM worker_processes wp
+        JOIN whatsapp_sessions ws ON ws.tenant_id = wp.tenant_id
+        WHERE wp.pm2_name = '$W' LIMIT 1;" 2>/dev/null || echo "")
+      if [ "$WA_STATE" = "QR_PENDING" ] || [ "$WA_STATE" = "QR_READY" ]; then
+        echo "  Skipping $W (session state: $WA_STATE — QR scan in progress)"
+        SKIP=1
+      fi
+    fi
+    if [ "$SKIP" = "0" ]; then
+      echo "  Restarting $W..."
+      pm2 restart "$W" --update-env 2>/dev/null || echo "  ⚠️  Could not restart $W"
+    fi
   done
 else
   echo "  No tenant workers running"
