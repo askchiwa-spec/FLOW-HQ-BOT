@@ -281,16 +281,28 @@ router.get('/customers', portalAuthMiddleware, async (req: Request, res: Respons
     }
 
     const status = req.query.status as string | undefined;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
 
     if (status && !VALID_LEAD_STATUSES.includes(status)) {
       return res.status(400).json({ error: `status must be one of: ${VALID_LEAD_STATUSES.join(', ')}` });
     }
 
-    const customers = await prisma.customer.findMany({
-      where: {
-        tenant_id: user.tenant.id,
-        ...(status ? { lead_status: status as any } : {}),
+    const dateFilter = (from || to) ? {
+      last_interaction: {
+        ...(from ? { gte: new Date(from) } : {}),
+        ...(to ? { lte: new Date(new Date(to).setHours(23, 59, 59, 999)) } : {}),
       },
+    } : {};
+
+    const where = {
+      tenant_id: user.tenant.id,
+      ...(status ? { lead_status: status as any } : {}),
+      ...dateFilter,
+    };
+
+    const customers = await prisma.customer.findMany({
+      where,
       orderBy: { last_interaction: 'desc' },
     });
 
@@ -303,6 +315,58 @@ router.get('/customers', portalAuthMiddleware, async (req: Request, res: Respons
   } catch (error) {
     logger.error('Error fetching portal customers:', error);
     res.status(500).json({ error: 'Failed to fetch customers' });
+  }
+});
+
+/**
+ * GET /portal/customers/export
+ * Download all customers as CSV
+ */
+router.get('/customers/export', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const user = await getUserFromRequest(req);
+
+    if (!user?.tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+    const status = req.query.status as string | undefined;
+
+    const dateFilter = (from || to) ? {
+      last_interaction: {
+        ...(from ? { gte: new Date(from) } : {}),
+        ...(to ? { lte: new Date(new Date(to).setHours(23, 59, 59, 999)) } : {}),
+      },
+    } : {};
+
+    const customers = await prisma.customer.findMany({
+      where: {
+        tenant_id: user.tenant.id,
+        ...(status && VALID_LEAD_STATUSES.includes(status) ? { lead_status: status as any } : {}),
+        ...dateFilter,
+      },
+      orderBy: { last_interaction: 'desc' },
+    });
+
+    const rows = customers.map((c) => {
+      const phone = c.phone.replace('@c.us', '').replace('@lid', '');
+      const waLink = /^\d+$/.test(phone) ? `https://wa.me/${phone}` : '';
+      const date = new Date(c.last_interaction).toISOString().split('T')[0];
+      const name = (c.name || '').replace(/,/g, ' ');
+      return `"${name}","${phone}","${waLink}","${c.request_type}","${c.lead_status}","${date}"`;
+    });
+
+    const csv = `Name,Phone,WhatsApp Link,Request Type,Lead Status,Last Active\n${rows.join('\n')}`;
+    const filename = `customers-${user.tenant.id.slice(0, 8)}-${new Date().toISOString().split('T')[0]}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
+  } catch (error) {
+    logger.error('Error exporting portal customers:', error);
+    res.status(500).json({ error: 'Failed to export customers' });
   }
 });
 

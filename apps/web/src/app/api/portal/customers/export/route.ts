@@ -1,5 +1,4 @@
 import { getPortalToken } from '@/lib/portal-auth';
-import { checkRateLimit } from '@/lib/rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
@@ -13,17 +12,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (checkRateLimit(token.email, 'customers', 30, 60_000)) {
-    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
-  }
-
   const { searchParams } = new URL(request.url);
-  const status = searchParams.get('status');
-  const from = searchParams.get('from');
-  const to = searchParams.get('to');
 
   try {
-    const url = new URL(`${CONTROL_PLANE_URL}/portal/customers`);
+    const url = new URL(`${CONTROL_PLANE_URL}/portal/customers/export`);
+    const status = searchParams.get('status');
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
     if (status) url.searchParams.set('status', status);
     if (from) url.searchParams.set('from', from);
     if (to) url.searchParams.set('to', to);
@@ -36,14 +31,20 @@ export async function GET(request: NextRequest) {
     });
 
     if (!res.ok) {
-      const error = await res.json();
-      return NextResponse.json(error, { status: res.status });
+      return NextResponse.json({ error: 'Failed to export' }, { status: res.status });
     }
 
-    const data = await res.json();
-    return NextResponse.json(data);
+    const csv = await res.text();
+    const filename = res.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] ?? 'customers.csv';
+
+    return new NextResponse(csv, {
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
+    });
   } catch (error) {
-    console.error('Error calling control plane:', error);
-    return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 });
+    console.error('Error exporting customers:', error);
+    return NextResponse.json({ error: 'Failed to export customers' }, { status: 500 });
   }
 }

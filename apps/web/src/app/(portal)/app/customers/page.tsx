@@ -36,18 +36,33 @@ const TYPE_STYLES: Record<string, string> = {
   GENERAL: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
 };
 
+function cleanPhone(phone: string): string {
+  return phone.replace('@c.us', '').replace('@lid', '');
+}
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, new: 0, pending: 0, confirmed: 0 });
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  const fetchCustomers = async (status?: string) => {
+  const buildParams = (status: string, from: string, to: string) => {
+    const p = new URLSearchParams();
+    if (status) p.set('status', status);
+    if (from) p.set('from', from);
+    if (to) p.set('to', to);
+    return p.toString();
+  };
+
+  const fetchCustomers = async (status: string, from: string, to: string) => {
     try {
       setRefreshing(true);
-      const url = status ? `/api/portal/customers?status=${status}` : '/api/portal/customers';
-      const res = await fetch(url);
+      const qs = buildParams(status, from, to);
+      const res = await fetch(`/api/portal/customers${qs ? `?${qs}` : ''}`);
       const data = await res.json();
       setCustomers(data.customers || []);
       setStats(data.stats || { total: 0, new: 0, pending: 0, confirmed: 0 });
@@ -60,8 +75,28 @@ export default function CustomersPage() {
   };
 
   useEffect(() => {
-    fetchCustomers(statusFilter || undefined);
-  }, [statusFilter]);
+    fetchCustomers(statusFilter, fromDate, toDate);
+  }, [statusFilter, fromDate, toDate]);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const qs = buildParams(statusFilter, fromDate, toDate);
+      const res = await fetch(`/api/portal/customers/export${qs ? `?${qs}` : ''}`);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `customers-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export error:', error);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -77,7 +112,7 @@ export default function CustomersPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between mb-8"
+        className="flex items-center justify-between mb-8 flex-wrap gap-4"
       >
         <div>
           <h1 className="text-3xl sm:text-4xl font-heading font-bold text-white mb-2">
@@ -88,16 +123,29 @@ export default function CustomersPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => fetchCustomers(statusFilter || undefined)}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-500/10 border border-primary-500/20 text-primary-400 hover:bg-primary-500/20 disabled:opacity-50 transition-colors"
-        >
-          <svg className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          {refreshing ? 'Refreshing...' : 'Refresh'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleExport}
+            disabled={exporting || customers.length === 0}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-40 transition-colors text-sm font-medium"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            </svg>
+            {exporting ? 'Exporting...' : 'Export CSV'}
+          </button>
+
+          <button
+            onClick={() => fetchCustomers(statusFilter, fromDate, toDate)}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-500/10 border border-primary-500/20 text-primary-400 hover:bg-primary-500/20 disabled:opacity-50 transition-colors text-sm"
+          >
+            <svg className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
       </motion.div>
 
       {/* Stats */}
@@ -127,21 +175,46 @@ export default function CustomersPage() {
         transition={{ delay: 0.1 }}
         className="bg-dark-800/50 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden"
       >
-        {/* Table header with filter */}
+        {/* Filters bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-dark-700/30 flex-wrap gap-3">
           <h2 className="text-base font-semibold text-white font-heading">Lead List</h2>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-dark-700 border border-white/10 text-slate-300 text-sm focus:outline-none focus:border-primary-500/50"
-          >
-            <option value="">All Statuses</option>
-            <option value="NEW">New</option>
-            <option value="PENDING">Pending</option>
-            <option value="CONFIRMED">Confirmed</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="CANCELLED">Cancelled</option>
-          </select>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-dark-700 border border-white/10 text-slate-300 text-sm focus:outline-none focus:border-primary-500/50"
+              title="From date"
+            />
+            <span className="text-slate-500 text-sm">–</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-dark-700 border border-white/10 text-slate-300 text-sm focus:outline-none focus:border-primary-500/50"
+              title="To date"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-dark-700 border border-white/10 text-slate-300 text-sm focus:outline-none focus:border-primary-500/50"
+            >
+              <option value="">All Statuses</option>
+              <option value="NEW">New</option>
+              <option value="PENDING">Pending</option>
+              <option value="CONFIRMED">Confirmed</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+            {(fromDate || toDate || statusFilter) && (
+              <button
+                onClick={() => { setFromDate(''); setToDate(''); setStatusFilter(''); }}
+                className="px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 text-sm transition-colors"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {customers.length === 0 ? (
@@ -168,41 +241,55 @@ export default function CustomersPage() {
             </div>
 
             <div className="divide-y divide-white/5">
-              {customers.map((c, index) => (
-                <motion.div
-                  key={c.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.03 }}
-                  className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-white/5 transition-colors items-center"
-                >
-                  <div className="col-span-12 sm:col-span-3">
-                    <p className="text-sm font-medium text-white">{c.name || 'Unknown'}</p>
-                    <p className="text-xs text-slate-500 sm:hidden font-mono mt-0.5">{c.phone.replace('@c.us', '')}</p>
-                  </div>
-                  <div className="hidden sm:block col-span-3 font-mono text-sm text-slate-400">
-                    {c.phone.replace('@c.us', '')}
-                  </div>
-                  <div className="col-span-6 sm:col-span-2">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${TYPE_STYLES[c.request_type] || TYPE_STYLES.GENERAL}`}>
-                      {c.request_type.replace('_', ' ')}
-                    </span>
-                  </div>
-                  <div className="col-span-6 sm:col-span-2">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_STYLES[c.lead_status] || STATUS_STYLES.NEW}`}>
-                      {c.lead_status}
-                    </span>
-                  </div>
-                  <div className="col-span-12 sm:col-span-2 text-xs text-slate-500">
-                    {new Date(c.last_interaction).toLocaleDateString('en-GB', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </div>
-                </motion.div>
-              ))}
+              {customers.map((c, index) => {
+                const phone = cleanPhone(c.phone);
+                return (
+                  <motion.div
+                    key={c.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                    className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-white/5 transition-colors items-center"
+                  >
+                    <div className="col-span-12 sm:col-span-3">
+                      <p className="text-sm font-medium text-white">{c.name || 'Unknown'}</p>
+                      <p className="text-xs text-slate-500 sm:hidden font-mono mt-0.5">{phone}</p>
+                    </div>
+                    <div className="hidden sm:block col-span-3">
+                      {/^\d+$/.test(phone) ? (
+                        <a
+                          href={`https://wa.me/${phone}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-sm text-primary-400 hover:text-primary-300 transition-colors"
+                        >
+                          {phone}
+                        </a>
+                      ) : (
+                        <span className="font-mono text-sm text-slate-400">{phone}</span>
+                      )}
+                    </div>
+                    <div className="col-span-6 sm:col-span-2">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${TYPE_STYLES[c.request_type] || TYPE_STYLES.GENERAL}`}>
+                        {c.request_type.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="col-span-6 sm:col-span-2">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_STYLES[c.lead_status] || STATUS_STYLES.NEW}`}>
+                        {c.lead_status}
+                      </span>
+                    </div>
+                    <div className="col-span-12 sm:col-span-2 text-xs text-slate-500">
+                      {new Date(c.last_interaction).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
           </>
         )}
