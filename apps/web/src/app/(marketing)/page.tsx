@@ -2,6 +2,7 @@ import {
   HeroSection,
   ProblemSection,
   SolutionSection,
+  LeadGenSection,
   HowItWorks,
   PricingCards,
   Testimonials,
@@ -20,6 +21,9 @@ export default function HomePage() {
 
       {/* Solution Section */}
       <SolutionSection />
+
+      {/* Lead Generation Highlight */}
+      <LeadGenSection />
 
       {/* How It Works */}
       <HowItWorks />

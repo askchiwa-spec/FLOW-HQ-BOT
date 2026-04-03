@@ -13,6 +13,7 @@ export { Footer } from './layout/Footer';
 export { HeroSection } from './sections/HeroSection';
 export { ProblemSection } from './sections/ProblemSection';
 export { SolutionSection } from './sections/SolutionSection';
+export { LeadGenSection } from './sections/LeadGenSection';
 export { HowItWorks } from './sections/HowItWorks';
 export { PricingCards } from './sections/PricingCards';
 export { Testimonials } from './sections/Testimonials';

@@ -5,34 +5,58 @@ import { useInView } from 'react-intersection-observer';
 
 const features = [
   {
+    icon: '📲',
+    title: 'Auto Lead Capture',
+    description: 'Every person who messages your bot is automatically saved — name, phone, and intent. Your customer list grows while you sleep.',
+    highlight: true,
+  },
+  {
     icon: '📅',
     title: 'Instant Booking',
     description: 'Customers book appointments 24/7. No back-and-forth. No missed slots.',
+    highlight: false,
   },
   {
     icon: '🛒',
     title: 'Order Processing',
-    description: 'Take orders automatically. Send payment links. Track deliveries.',
+    description: 'Take orders automatically. Send payment links. Confirm deliveries — all on WhatsApp.',
+    highlight: false,
   },
   {
-    icon: '💬',
-    title: 'Smart Responses',
-    description: 'Answer FAQs instantly. Handle common questions without human intervention.',
+    icon: '👥',
+    title: 'Customer Database',
+    description: 'All your leads in one place. Filter by status, search by name, and know who needs follow-up.',
+    highlight: false,
+  },
+  {
+    icon: '📥',
+    title: 'Export Contacts',
+    description: 'Download your full customer list as Excel/CSV anytime. Use it for campaigns, follow-ups, or analysis.',
+    highlight: false,
+  },
+  {
+    icon: '🤖',
+    title: 'AI-Powered Replies',
+    description: 'Trained on your business. Answers questions about your services, pricing, and hours — automatically.',
+    highlight: false,
   },
   {
     icon: '🌍',
     title: 'Swahili & English',
-    description: 'Speak your customers\' language. Auto-detect and respond appropriately.',
-  },
-  {
-    icon: '📊',
-    title: 'Message Logs',
-    description: 'See every conversation. Know what your customers are asking.',
+    description: 'Speak your customers\' language. The bot auto-detects and responds in the right language.',
+    highlight: false,
   },
   {
     icon: '🔄',
     title: 'Human Handoff',
-    description: 'Complex questions? Transfer to your team with full context.',
+    description: 'Complex issues? Hand off to your team with full conversation context intact.',
+    highlight: false,
+  },
+  {
+    icon: '📊',
+    title: 'Full Conversation Logs',
+    description: 'See every message, every customer, every interaction. Stay in control at all times.',
+    highlight: false,
   },
 ];
 
@@ -74,12 +98,23 @@ export function SolutionSection() {
               key={feature.title}
               initial={{ opacity: 0, y: 20 }}
               animate={inView ? { opacity: 1, y: 0 } : {}}
-              transition={{ delay: index * 0.1 }}
-              className="group relative bg-dark-800/50 backdrop-blur-sm rounded-2xl p-6 border border-white/5 hover:border-primary-500/30 transition-all duration-300"
+              transition={{ delay: index * 0.07 }}
+              className={`group relative backdrop-blur-sm rounded-2xl p-6 border transition-all duration-300 ${
+                feature.highlight
+                  ? 'bg-gradient-to-br from-primary-500/15 to-secondary-500/10 border-primary-500/30 hover:border-primary-500/50'
+                  : 'bg-dark-800/50 border-white/5 hover:border-primary-500/30'
+              }`}
             >
+              {feature.highlight && (
+                <div className="absolute -top-3 left-6">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary-500 text-white text-xs font-semibold">
+                    Key Feature
+                  </span>
+                </div>
+              )}
               {/* Gradient on hover */}
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              
+
               <div className="relative z-10">
                 <div className="text-4xl mb-4">{feature.icon}</div>
                 <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
@@ -93,14 +128,14 @@ export function SolutionSection() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ delay: 0.6 }}
+          transition={{ delay: 0.7 }}
           className="mt-12 text-center"
         >
           <p className="text-xl text-white font-medium">
             ✨ All on your WhatsApp. All automatic.
           </p>
           <p className="text-slate-400 mt-2">
-            No new apps. No complicated setup. We handle everything.
+            No new apps. No complicated setup. We handle everything — including building your customer list.
           </p>
         </motion.div>
       </div>
