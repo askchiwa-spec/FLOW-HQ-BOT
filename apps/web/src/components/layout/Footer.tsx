@@ -150,7 +150,7 @@ export function Footer() {
                 </a>
               ))}
             </div>
-            <div className="mt-4 space-y-1">
+            <div className="mt-4 space-y-1.5">
               <a
                 href="https://wa.me/255765111131"
                 target="_blank"
@@ -160,12 +160,16 @@ export function Footer() {
                 +255 765 111 131
               </a>
               <a
-                href="https://www.chatisha.africa"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="mailto:business@chatisha.com"
                 className="block text-slate-400 hover:text-white text-sm transition-colors"
               >
-                www.chatisha.africa
+                business@chatisha.com
+              </a>
+              <a
+                href="mailto:support@chatisha.com"
+                className="block text-slate-400 hover:text-white text-sm transition-colors"
+              >
+                support@chatisha.com
               </a>
             </div>
           </div>
