@@ -608,17 +608,22 @@ router.get('/customers/export', async (req: Request, res: Response) => {
       orderBy: { created_at: 'desc' },
     });
 
-    const rows = customers.map((c: any) => [
-      `"${(c.name || '').replace(/"/g, '')}"`,
-      `"${c.phone}"`,
-      `"${c.request_type}"`,
-      `"${c.lead_status}"`,
-      `"${(c.tenant.config?.business_name || c.tenant.name).replace(/"/g, '')}"`,
-      `"${c.created_at.toISOString().slice(0, 10)}"`,
-      `"${c.last_interaction.toISOString().slice(0, 10)}"`,
-    ].join(','));
+    const rows = customers.map((c: any) => {
+      const phone = c.phone.replace('@c.us', '').replace('@lid', '');
+      const waLink = phone.match(/^\d+$/) ? `https://wa.me/${phone}` : '';
+      return [
+        `"${(c.name || 'Unknown').replace(/"/g, '')}"`,
+        `"${phone}"`,
+        `"${waLink}"`,
+        `"${c.request_type}"`,
+        `"${c.lead_status}"`,
+        `"${(c.tenant.config?.business_name || c.tenant.name).replace(/"/g, '')}"`,
+        `"${c.created_at.toISOString().slice(0, 10)}"`,
+        `"${c.last_interaction.toISOString().slice(0, 10)}"`,
+      ].join(',');
+    });
 
-    const csv = ['Name,Phone,Request Type,Lead Status,Business,Date Created,Last Interaction', ...rows].join('\n');
+    const csv = ['Name,Phone,WhatsApp Link,Request Type,Lead Status,Business,Date Captured,Last Active', ...rows].join('\n');
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=chatisha-leads.csv');
     res.send(csv);
