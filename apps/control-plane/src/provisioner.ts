@@ -40,7 +40,8 @@ function writeEcosystemConfig(pm2Name: string, tenantId: string, sessionsPath: s
       RATE_LIMIT_MAX_PER_MINUTE: ${JSON.stringify(process.env.RATE_LIMIT_MAX_PER_MINUTE || '10')},
       HEARTBEAT_INTERVAL_MS: ${JSON.stringify(process.env.HEARTBEAT_INTERVAL_MS || '30000')},
       NODE_ENV: ${JSON.stringify(process.env.NODE_ENV || 'production')},
-      ALERT_WEBHOOK_URL: ${JSON.stringify(process.env.ALERT_WEBHOOK_URL || '')}
+      ALERT_WEBHOOK_URL: ${JSON.stringify(process.env.ALERT_WEBHOOK_URL || '')},
+      TZ: 'Africa/Nairobi'
     }
   }]
 };\n`;

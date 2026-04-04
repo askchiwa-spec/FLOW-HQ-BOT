@@ -50,21 +50,24 @@ export async function extractBookingDetails(
     .map((m) => `${m.role === 'user' ? 'Customer' : 'Bot'}: ${m.content}`)
     .join('\n');
 
+  const tanzaniaDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' }); // YYYY-MM-DD in EAT
   const prompt = isAppointment
     ? `Extract appointment details from this conversation. Return ONLY valid JSON, nothing else.
 
 Conversation:
 ${conversationText}
 
+IMPORTANT: All times are East Africa Time (EAT, UTC+3). Always include the +03:00 offset in the datetime string.
+
 Return this exact JSON structure:
 {
   "service": "service name or null",
-  "appointment_at": "ISO datetime string like 2026-03-20T14:00:00 or null if not clear",
+  "appointment_at": "ISO datetime string WITH timezone like 2026-03-20T14:00:00+03:00 or null if not clear",
   "contact_name": "customer name or null",
   "confirmed": true or false
 }
 
-If the date is relative (e.g. "tomorrow", "kesho"), use today's date ${new Date().toISOString().split('T')[0]} as reference.
+If the date is relative (e.g. "tomorrow", "kesho"), use today's date ${tanzaniaDate} as reference (East Africa Time).
 If no appointment was confirmed, return {"confirmed": false, "service": null, "appointment_at": null, "contact_name": null}.`
     : `Extract order details from this conversation. Return ONLY valid JSON, nothing else.
 
@@ -120,7 +123,7 @@ export async function saveAppointment(
     if (data.appointment_at) {
       const apptDate = new Date(data.appointment_at);
       const now = new Date();
-      const timeStr = apptDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const timeStr = apptDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
       const svc = data.service || 'appointment';
 
       const reminder24h = new Date(apptDate.getTime() - 24 * 60 * 60 * 1000);

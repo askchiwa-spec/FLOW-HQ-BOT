@@ -50,6 +50,7 @@ module.exports = {
       exp_backoff_restart_delay: 5000,
       env: {
         NODE_ENV: 'production',
+        TZ: 'Africa/Nairobi',
       },
       out_file: '/var/www/flowhq/logs/scheduler-out.log',
       error_file: '/var/www/flowhq/logs/scheduler-error.log',
