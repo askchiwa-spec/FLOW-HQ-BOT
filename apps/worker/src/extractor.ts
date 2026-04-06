@@ -219,8 +219,8 @@ export async function saveOrderFollowup(
           tenant_id: tenantId,
           contact_phone: contactPhone,
           message: language === 'EN'
-            ? `Hi! Your order has been received. Do you have any questions? We're here to help. 😊`
-            : `Habari! Order yako imepokelewa. Je, una maswali yoyote? Tuko hapa kukusaidia. 😊`,
+            ? `Hi! Your order has been received ✅\n\n${data.order_summary}\n\nPlease reply YES to confirm or NO to cancel. Questions? We're here to help. 😊`
+            : `Habari! Order yako imepokelewa ✅\n\n${data.order_summary}\n\nTafadhali jibu YES kuthibitisha au NO kufuta. Una maswali? Tuko hapa kukusaidia. 😊`,
           type: 'ORDER_FOLLOWUP' as const,
           send_at: followup30min,
           followup_id: order.id,
@@ -249,8 +249,9 @@ export async function saveOrderFollowup(
     });
 
     // Notify business owner about the new order
+    const normalizedPhone = contactPhone.replace('@c.us', '').replace('@lid', '');
     await notifyAdmin(
-      `New order from ${contactPhone}:\n${data.order_summary}`,
+      `New order from ${normalizedPhone}:\n${data.order_summary}`,
       'New Order Received'
     );
 

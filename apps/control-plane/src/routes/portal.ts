@@ -8,6 +8,7 @@ const prisma = new PrismaClient();
 const VALID_TEMPLATE_TYPES = ['BOOKING', 'ECOMMERCE', 'SUPPORT', 'REAL_ESTATE', 'RESTAURANT', 'HEALTHCARE', 'SALON', 'HOTEL'];
 const VALID_LANGUAGES = ['SW', 'EN'];
 const VALID_LEAD_STATUSES = ['NEW', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'];
+const VALID_ORDER_STATUSES = ['ACTIVE', 'CONFIRMED', 'CANCELLED', 'EXPIRED'];
 
 /**
  * Middleware to validate portal internal key
@@ -367,6 +368,81 @@ router.get('/customers/export', portalAuthMiddleware, async (req: Request, res: 
   } catch (error) {
     logger.error('Error exporting portal customers:', error);
     res.status(500).json({ error: 'Failed to export customers' });
+  }
+});
+
+/**
+ * GET /portal/orders
+ * Get order followups for the authenticated tenant, joined with Customer for name
+ */
+router.get('/orders', portalAuthMiddleware, async (req: Request, res: Response) => {
+  try {
+    const user = await getUserFromRequest(req);
+
+    if (!user?.tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    const status = req.query.status as string | undefined;
+    const from = req.query.from as string | undefined;
+    const to = req.query.to as string | undefined;
+
+    if (status && !VALID_ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `status must be one of: ${VALID_ORDER_STATUSES.join(', ')}` });
+    }
+
+    const dateFilter = (from || to) ? {
+      created_at: {
+        ...(from ? { gte: new Date(from) } : {}),
+        ...(to ? { lte: new Date(new Date(to).setHours(23, 59, 59, 999)) } : {}),
+      },
+    } : {};
+
+    const where = {
+      tenant_id: user.tenant.id,
+      ...(status ? { status: status as any } : {}),
+      ...dateFilter,
+    };
+
+    const orders = await (prisma as any).orderFollowup.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: 200,
+    });
+
+    // Enrich each order with the customer name
+    const enriched = await Promise.all(
+      orders.map(async (o: any) => {
+        const normalizedPhone = o.contact_phone.replace('@c.us', '').replace('@lid', '');
+        const customer = await prisma.customer.findFirst({
+          where: { tenant_id: user.tenant!.id, phone: normalizedPhone },
+          select: { name: true },
+        });
+        return {
+          id: o.id,
+          contact_phone: normalizedPhone,
+          customer_name: customer?.name ?? null,
+          order_summary: o.order_summary,
+          status: o.status,
+          followup_count: o.followup_count,
+          created_at: o.created_at,
+        };
+      })
+    );
+
+    const tenantWhere = { tenant_id: user.tenant.id };
+    const [total, active, confirmed, cancelled, expired] = await Promise.all([
+      (prisma as any).orderFollowup.count({ where: tenantWhere }),
+      (prisma as any).orderFollowup.count({ where: { ...tenantWhere, status: 'ACTIVE' } }),
+      (prisma as any).orderFollowup.count({ where: { ...tenantWhere, status: 'CONFIRMED' } }),
+      (prisma as any).orderFollowup.count({ where: { ...tenantWhere, status: 'CANCELLED' } }),
+      (prisma as any).orderFollowup.count({ where: { ...tenantWhere, status: 'EXPIRED' } }),
+    ]);
+
+    res.json({ orders: enriched, stats: { total, active, confirmed, cancelled, expired } });
+  } catch (error) {
+    logger.error('Error fetching portal orders:', error);
+    res.status(500).json({ error: 'Failed to fetch orders' });
   }
 });
 

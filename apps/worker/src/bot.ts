@@ -534,6 +534,7 @@ export class WhatsAppBot {
           }).catch(() => null);
 
           if (activeFollowup) {
+            const normalizedPhone = msg.from.replace('@c.us', '').replace('@lid', '');
             if (isYes) {
               await (this.prisma as any).orderFollowup.update({
                 where: { id: activeFollowup.id },
@@ -542,12 +543,25 @@ export class WhatsAppBot {
               await (this.prisma as any).scheduledMessage.deleteMany({
                 where: { tenant_id: this.tenantId, contact_phone: msg.from, sent_at: null, type: 'ORDER_FOLLOWUP' },
               }).catch(() => {});
+              // Update CRM lead status to CONFIRMED
+              await this.prisma.customer.updateMany({
+                where: { tenant_id: this.tenantId, phone: normalizedPhone, lead_status: 'PENDING' },
+                data: { lead_status: 'CONFIRMED' },
+              }).catch(() => {});
               const confirmMsg = lang === 'SW'
                 ? `Asante! Order yako imethibitishwa. Timu yetu itakuwasiliana nawe hivi karibuni kuhusu malipo na uwasilishaji. 🙏`
                 : `Thank you! Your order is confirmed. Our team will reach out shortly for payment and delivery. 🙏`;
               await this.adapter.sendMessage(msg.from, confirmMsg);
               this.logger.info({ contact: msg.from, orderId: activeFollowup.id }, 'Order confirmed by customer');
-              await notifyAdmin(`Order CONFIRMED by customer ${msg.from}.\nOrder: ${activeFollowup.order_summary}`, 'Order Confirmed');
+              // Fetch customer name to enrich admin notification
+              const customerRecord = await this.prisma.customer.findFirst({
+                where: { tenant_id: this.tenantId, phone: normalizedPhone },
+                select: { name: true },
+              }).catch(() => null);
+              await notifyAdmin(
+                `Order CONFIRMED by ${customerRecord?.name ?? 'Unknown'} (${normalizedPhone}).\nOrder: ${activeFollowup.order_summary}`,
+                'Order Confirmed'
+              );
             } else {
               await (this.prisma as any).orderFollowup.update({
                 where: { id: activeFollowup.id },
@@ -555,6 +569,11 @@ export class WhatsAppBot {
               }).catch(() => {});
               await (this.prisma as any).scheduledMessage.deleteMany({
                 where: { tenant_id: this.tenantId, contact_phone: msg.from, sent_at: null, type: 'ORDER_FOLLOWUP' },
+              }).catch(() => {});
+              // Update CRM lead status to CANCELLED
+              await this.prisma.customer.updateMany({
+                where: { tenant_id: this.tenantId, phone: normalizedPhone, lead_status: { in: ['PENDING', 'NEW'] } },
+                data: { lead_status: 'CANCELLED' },
               }).catch(() => {});
               const cancelMsg = lang === 'SW'
                 ? `Sawa, order yako imefutwa. Ikiwa unahitaji msaada wowote, tuma ujumbe tena. 😊`
@@ -747,6 +766,14 @@ export class WhatsAppBot {
             where: { id: msg.id },
             data: { sent_at: now },
           });
+          // Increment followup_count on the parent OrderFollowup so the scheduler
+          // can expire it after 3 messages (prevents endless retries)
+          if (msg.type === 'ORDER_FOLLOWUP' && msg.followup_id) {
+            await (this.prisma as any).orderFollowup.update({
+              where: { id: msg.followup_id },
+              data: { followup_count: { increment: 1 } },
+            }).catch(() => {});
+          }
           this.logger.info({ type: msg.type, contact: msg.contact_phone }, 'Scheduled message sent');
         } catch (sendErr) {
           this.logger.error({ err: sendErr, msgId: msg.id }, 'Failed to send scheduled message');

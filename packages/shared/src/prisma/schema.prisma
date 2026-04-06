@@ -91,6 +91,7 @@ enum ScheduledMessageType {
   APPOINTMENT_REMINDER_2H
   APPOINTMENT_MISSED
   ORDER_FOLLOWUP
+  CART_REMINDER
 }
 
 enum RequestType {
