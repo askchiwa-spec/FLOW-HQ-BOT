@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import * as Sentry from '@sentry/node';
+import { register, Gauge, collectDefaultMetrics } from 'prom-client';
 import { notifyAdmin } from './notify';
 
 dotenv.config({ override: true }); // Always use .env values — overrides any stale vars baked into PM2's saved env
@@ -26,6 +27,23 @@ import documentRoutes from './routes/documents';
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
+
+// Prometheus metrics — collect default Node.js metrics (memory, CPU, event loop, GC)
+collectDefaultMetrics();
+
+const workerStatusGauge = new Gauge({
+  name: 'chatisha_workers_by_status',
+  help: 'Number of worker processes by status',
+  labelNames: ['status'],
+});
+const scheduledPendingGauge = new Gauge({
+  name: 'chatisha_scheduled_messages_pending',
+  help: 'Scheduled messages not yet delivered',
+});
+const activeTenantsGauge = new Gauge({
+  name: 'chatisha_active_tenants',
+  help: 'Tenants with ACTIVE status',
+});
 
 // Trust Nginx reverse proxy (needed for express-rate-limit X-Forwarded-For)
 app.set('trust proxy', 1);
@@ -138,6 +156,34 @@ app.get('/health', async (_req, res) => {
     latencyMs: Date.now() - start,
     checks,
   });
+});
+
+// Prometheus metrics — internal only (localhost / private network)
+app.get('/metrics', async (req, res) => {
+  const ip = req.ip ?? '';
+  const isInternal = ip.includes('127.0.0.1') || ip.includes('::1') || ip.startsWith('10.') || ip.startsWith('192.168.');
+  if (!isInternal) {
+    return res.status(403).send('Forbidden');
+  }
+  try {
+    const [workerCounts, pendingCount, tenantCount] = await Promise.all([
+      prisma.workerProcess.groupBy({ by: ['status'], _count: true }),
+      (prisma as any).scheduledMessage.count({ where: { sent_at: null } }),
+      prisma.tenant.count({ where: { status: 'ACTIVE' } }),
+    ]);
+    workerStatusGauge.reset();
+    for (const row of workerCounts) {
+      workerStatusGauge.set({ status: row.status }, row._count);
+    }
+    scheduledPendingGauge.set(pendingCount);
+    activeTenantsGauge.set(tenantCount);
+
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  } catch (err) {
+    logger.error({ err }, 'Failed to collect Prometheus metrics');
+    res.status(500).send('Error collecting metrics');
+  }
 });
 
 // Logout — registered before authMiddleware so it always returns 401 (clears browser Basic Auth cache)

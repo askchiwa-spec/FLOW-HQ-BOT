@@ -105,7 +105,8 @@ export async function saveAppointment(
   tenantId: string,
   contactPhone: string,
   data: ExtractedAppointment,
-  language: 'SW' | 'EN' = 'SW'
+  language: 'SW' | 'EN' = 'SW',
+  templateType: string = ''
 ): Promise<string | null> {
   try {
     const appt = await (prisma as any).appointment.create({
@@ -119,12 +120,41 @@ export async function saveAppointment(
       },
     });
 
+    const normalizedPhone = contactPhone.replace('@c.us', '').replace('@lid', '');
+
+    // Sync extracted name to CRM if not already set
+    if (data.contact_name) {
+      await prisma.customer.updateMany({
+        where: { tenant_id: tenantId, phone: normalizedPhone, name: null },
+        data: { name: data.contact_name },
+      }).catch(() => {});
+    }
+
+    // Update CRM lead_status to CONFIRMED — appointment is confirmed at booking time.
+    // Exception: HOTEL always requires manual team confirmation.
+    if (templateType !== 'HOTEL') {
+      await prisma.customer.updateMany({
+        where: { tenant_id: tenantId, phone: normalizedPhone, lead_status: { in: ['PENDING', 'NEW'] } },
+        data: { lead_status: 'CONFIRMED' },
+      }).catch(() => {});
+    }
+
+    // Notify business owner about the new booking
+    const dateStr = data.appointment_at
+      ? new Date(data.appointment_at).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })
+      : 'time TBD';
+    await notifyAdmin(
+      `New appointment booked by ${data.contact_name ?? normalizedPhone}.\nService: ${data.service ?? 'unknown'}\nDate: ${dateStr}\nPhone: ${normalizedPhone}`,
+      'New Appointment Booked'
+    ).catch(() => {});
+
     // Schedule reminders only if we have a datetime
     if (data.appointment_at) {
       const apptDate = new Date(data.appointment_at);
       const now = new Date();
       const timeStr = apptDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' });
       const svc = data.service || 'appointment';
+      const isHotel = templateType === 'HOTEL';
 
       const reminder24h = new Date(apptDate.getTime() - 24 * 60 * 60 * 1000);
       const reminder2h  = new Date(apptDate.getTime() -  2 * 60 * 60 * 1000);
@@ -136,9 +166,13 @@ export async function saveAppointment(
       if (reminder24h > now) {
         messages.push({
           tenant_id: tenantId, contact_phone: contactPhone,
-          message: language === 'EN'
-            ? `Hi! Just a reminder about your *${svc}* appointment tomorrow at ${timeStr}. We look forward to seeing you! 😊`
-            : `Habari! Kukumbusha kuhusu miadi yako kesho: *${svc}* saa ${timeStr}. Tuko tayari kukupokea! 😊`,
+          message: isHotel
+            ? (language === 'EN'
+                ? `Hi! Just a reminder — your room booking request for tomorrow is still pending confirmation. Please contact us if you haven't heard back. 😊`
+                : `Habari! Ukumbusho — ombi lako la chumba kesho bado linasubiri uthibitisho. Wasiliana nasi kama hujapata jibu. 😊`)
+            : (language === 'EN'
+                ? `Hi! Just a reminder about your *${svc}* appointment tomorrow at ${timeStr}. We look forward to seeing you! 😊`
+                : `Habari! Kukumbusha kuhusu miadi yako kesho: *${svc}* saa ${timeStr}. Tuko tayari kukupokea! 😊`),
           type: 'APPOINTMENT_REMINDER_24H' as const, send_at: reminder24h, appointment_id: appt.id,
         });
       }
@@ -146,18 +180,26 @@ export async function saveAppointment(
       if (reminder2h > now) {
         messages.push({
           tenant_id: tenantId, contact_phone: contactPhone,
-          message: language === 'EN'
-            ? `Hi! Your *${svc}* appointment is in 2 hours at ${timeStr}. See you soon! 🙏`
-            : `Habari! Miadi yako ya *${svc}* iko karibu — saa ${timeStr}. Tutakusubiri! 🙏`,
+          message: isHotel
+            ? (language === 'EN'
+                ? `Hi! Your room booking request is still pending — please check with our reception if you need an update. 🙏`
+                : `Habari! Ombi lako la chumba bado linasubiri — wasiliana na mapokezi yetu kama unahitaji habari. 🙏`)
+            : (language === 'EN'
+                ? `Hi! Your *${svc}* appointment is in 2 hours at ${timeStr}. See you soon! 🙏`
+                : `Habari! Miadi yako ya *${svc}* iko karibu — saa ${timeStr}. Tutakusubiri! 🙏`),
           type: 'APPOINTMENT_REMINDER_2H' as const, send_at: reminder2h, appointment_id: appt.id,
         });
       } else if (reminder1h > now) {
         // Fallback for same-day bookings — schedule a 1-hour reminder instead
         messages.push({
           tenant_id: tenantId, contact_phone: contactPhone,
-          message: language === 'EN'
-            ? `Hi! Just a reminder — your *${svc}* appointment is in 1 hour at ${timeStr}. See you soon! 🙏`
-            : `Habari! Miadi yako ya *${svc}* iko karibu saa moja — saa ${timeStr}. Tutakusubiri! 🙏`,
+          message: isHotel
+            ? (language === 'EN'
+                ? `Hi! Your room booking request is still pending — please check with our reception if you need an update. 🙏`
+                : `Habari! Ombi lako la chumba bado linasubiri — wasiliana na mapokezi yetu kama unahitaji habari. 🙏`)
+            : (language === 'EN'
+                ? `Hi! Just a reminder — your *${svc}* appointment is in 1 hour at ${timeStr}. See you soon! 🙏`
+                : `Habari! Miadi yako ya *${svc}* iko karibu saa moja — saa ${timeStr}. Tutakusubiri! 🙏`),
           type: 'APPOINTMENT_REMINDER_2H' as const, send_at: reminder1h, appointment_id: appt.id,
         });
       }
@@ -166,9 +208,13 @@ export async function saveAppointment(
       if (missedCheck > now) {
         messages.push({
           tenant_id: tenantId, contact_phone: contactPhone,
-          message: language === 'EN'
-            ? `Hi! We missed you today for your *${svc}* appointment. Would you like to reschedule? We'd love to see you. 🙏`
-            : `Habari! Tulikukosa leo kwa miadi yako ya *${svc}*. Je, ungependa kuweka miadi mpya? Tafadhali tuambie. 🙏`,
+          message: isHotel
+            ? (language === 'EN'
+                ? `Hi! Following up on your room booking request — has our team been in touch? We're happy to help. 🙏`
+                : `Habari! Tunafuatilia ombi lako la chumba — timu yetu imekuwasiliana nawe? Tuko hapa kusaidia. 🙏`)
+            : (language === 'EN'
+                ? `Hi! We missed you today for your *${svc}* appointment. Would you like to reschedule? We'd love to see you. 🙏`
+                : `Habari! Tulikukosa leo kwa miadi yako ya *${svc}*. Je, ungependa kuweka miadi mpya? Tafadhali tuambie. 🙏`),
           type: 'APPOINTMENT_MISSED' as const, send_at: missedCheck, appointment_id: appt.id,
         });
       }

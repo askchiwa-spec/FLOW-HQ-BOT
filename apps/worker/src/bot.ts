@@ -523,13 +523,13 @@ export class WhatsAppBot {
         return;
       }
 
-      // E1: Emergency pre-check — for healthcare, bypass AI entirely with immediate safety response
-      if (this.config?.templateType === 'HEALTHCARE') {
+      // E1: Emergency pre-check — bypass AI for all templates with immediate safety response
+      {
         const lowerBody = body.toLowerCase();
         if (this.EMERGENCY_KEYWORDS.some((kw) => lowerBody.includes(kw))) {
           const emergencyMsg = lang === 'SW'
-            ? `⚠️ DHARURA: Piga simu ya dharura SASA HIVI — 112 au 999. Usitegemee msaada wa mtandao katika hali ya hatari ya maisha! 🚨`
-            : `⚠️ EMERGENCY: Call emergency services RIGHT NOW — 112 or 999. Do not wait for an online response in a life-threatening situation! 🚨`;
+            ? `⚠️ DHARURA: Piga simu ya dharura SASA HIVI — 112 au 999. Usitegemee msaada wa mtandao katika hali ya hatari ya maisha! Timu yetu itawasiliana nawe. 🚨`
+            : `⚠️ EMERGENCY: Call emergency services RIGHT NOW — 112 or 999. Do not wait for an online response in a life-threatening situation! Our team will reach out shortly. 🚨`;
           await this.adapter.sendMessage(msg.from, emergencyMsg);
           this.logger.warn({ contact: msg.from }, 'EMERGENCY KEYWORD DETECTED — sent emergency response, skipping AI');
           return;
@@ -691,7 +691,7 @@ export class WhatsAppBot {
           .then(async (extracted) => {
             if (!extracted) return;
             if ('appointment_at' in extracted || 'service' in extracted) {
-              await saveAppointment(this.prisma as any, this.tenantId, msg.from, extracted as any, configSnapshot.language);
+              await saveAppointment(this.prisma as any, this.tenantId, msg.from, extracted as any, configSnapshot.language, configSnapshot.templateType);
             } else if ('order_summary' in extracted) {
               await saveOrderFollowup(this.prisma as any, this.tenantId, msg.from, extracted as any, configSnapshot.language);
             }
