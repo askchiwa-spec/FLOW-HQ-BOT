@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@chatisha/shared';
+import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
-
-const prisma = new PrismaClient();
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,22 +14,25 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.findUnique({ where: { email: clean } });
 
     // Always return success to avoid user enumeration
-    if (!user || !user.password_hash) {
+    if (!user || !(user as any).password_hash) {
       return NextResponse.json({ ok: true });
     }
 
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    await (prisma as any).user.update({
+    await prisma.user.update({
       where: { id: user.id },
-      data: { password_reset_token: token, password_reset_expires: expires },
+      data: {
+        password_reset_token: token,
+        password_reset_expires: expires,
+      } as any,
     });
 
     const baseUrl = process.env.NEXTAUTH_URL || 'https://app.chatisha.com';
     const resetUrl = `${baseUrl}/auth/reset-password?token=${token}`;
 
-    // Send via ntfy
+    // Send via ntfy to admin notification channel
     const webhookUrl = process.env.ALERT_WEBHOOK_URL;
     if (webhookUrl) {
       fetch(webhookUrl, {
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
           'Tags': 'key',
         },
         body: `Password reset for ${clean}\n\nReset link (expires in 1 hour):\n${resetUrl}`,
-      }).catch(() => {});
+      }).catch((err) => console.error('Failed to send reset notification:', err));
     }
 
     return NextResponse.json({ ok: true });

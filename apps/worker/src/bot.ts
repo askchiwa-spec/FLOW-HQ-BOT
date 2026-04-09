@@ -173,6 +173,29 @@ export class WhatsAppBot {
 
     this.client.on('authenticated', () => {
       this.logger.info('[SCAN] Authenticated successfully — session credentials saved, waiting for ready...');
+
+      // Clear the QR image from DB immediately — signals to the admin that the phone did scan.
+      this.prisma.whatsAppSession.update({
+        where: { tenant_id: this.tenantId },
+        data: { last_qr: null },
+      }).catch(() => {});
+
+      // Safety net: if the `ready` event never fires within 2 minutes after authentication
+      // (Chrome page stall, network hiccup, WhatsApp Web loading failure), exit so PM2
+      // restarts the process with a clean state. Without this the worker stays alive but
+      // stuck in an authenticated-but-not-ready limbo forever.
+      const readyTimeout = setTimeout(() => {
+        if (!this.isReady) {
+          this.logger.error({ tenantId: this.tenantId }, '[SCAN] ready event never fired 2 min after authentication — exiting for PM2 restart');
+          this.prisma.workerProcess.update({
+            where: { tenant_id: this.tenantId },
+            data: { last_error: 'STALE_AUTH: authenticated but ready never fired — PM2 auto-restarting' },
+          }).catch(() => {});
+          process.exit(1);
+        }
+      }, 2 * 60 * 1000);
+      // Don't block Node.js shutdown just for this timer
+      readyTimeout.unref();
     });
 
     this.client.on('ready', async () => {

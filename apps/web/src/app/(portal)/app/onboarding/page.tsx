@@ -12,7 +12,7 @@ export default function OnboardingPage() {
   const searchParams = useSearchParams();
 
   const templateFromUrl = searchParams.get('template');
-  const validTemplates = ['SALON', 'RESTAURANT', 'HOTEL', 'HEALTHCARE', 'ECOMMERCE', 'BOOKING', 'ECOMMERCE', 'SUPPORT', 'REAL_ESTATE'];
+  const validTemplates = ['SALON', 'RESTAURANT', 'HOTEL', 'HEALTHCARE', 'ECOMMERCE', 'BOOKING', 'SUPPORT', 'REAL_ESTATE'];
   const initialTemplate = templateFromUrl && validTemplates.includes(templateFromUrl)
     ? templateFromUrl
     : 'SALON';
@@ -36,18 +36,18 @@ export default function OnboardingPage() {
   const supportedCountries = getSupportedCountries();
 
   const handlePhoneChange = (value: string) => {
-    setFormData({ ...formData, whatsappNumber: value });
-    
     if (value.length > 4) {
       const result = validateWhatsAppNumber(value);
       if (!result.isValid) {
         setPhoneError(result.error || 'Invalid number');
+        setFormData((prev) => ({ ...prev, whatsappNumber: value }));
       } else {
         setPhoneError(null);
-        setFormData({ ...formData, whatsappNumber: result.formatted || value });
+        setFormData((prev) => ({ ...prev, whatsappNumber: result.formatted || value }));
       }
     } else {
       setPhoneError(null);
+      setFormData((prev) => ({ ...prev, whatsappNumber: value }));
     }
   };
 
