@@ -92,6 +92,7 @@ enum ScheduledMessageType {
   APPOINTMENT_MISSED
   ORDER_FOLLOWUP
   CART_REMINDER
+  EXTERNAL_API
 }
 
 enum RequestType {
@@ -249,6 +250,18 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+model ApiKey {
+  id         String   @id @default(uuid())
+  key_hash   String   @unique               // SHA-256 of the raw key — never store plaintext
+  label      String                          // e.g. "WATU HCM Production"
+  tenant_id  String?                         // null = global key (all tenants); set to scope to one tenant
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  last_used_at DateTime?
+
+  @@map("api_keys")
 }
 
 model SetupRequest {

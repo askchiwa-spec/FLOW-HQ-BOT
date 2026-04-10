@@ -23,6 +23,7 @@ import { authMiddleware } from './middleware/auth';
 import adminRoutes, { markStaleWorkers } from './routes/admin';
 import portalRoutes from './routes/portal';
 import documentRoutes from './routes/documents';
+import v1Routes from './routes/v1';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -65,6 +66,12 @@ app.use('/portal', cors({
   origin: false,
 }));
 
+// v1 external API — open to any origin (auth is via Bearer API key)
+app.use('/v1', cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'DELETE'],
+}));
+
 // Rate limiting
 // Admin: 60 req/min per IP — protects against brute-force on ADMIN_PASSWORD
 const adminLimiter = rateLimit({
@@ -85,8 +92,18 @@ const portalLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later' },
 });
 
+// v1 external API: 30 req/min per IP — generous enough for integrations, throttles abuse
+const v1Limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+});
+
 app.use('/admin', adminLimiter);
 app.use('/portal', portalLimiter);
+app.use('/v1', v1Limiter);
 
 // Environment validation
 function validateEnvironment(): void {
@@ -197,6 +214,7 @@ app.get('/admin/logout', (_req, res) => {
 app.use('/admin', authMiddleware, adminRoutes);
 app.use('/portal', portalRoutes);
 app.use('/portal/documents', documentRoutes);
+app.use('/v1', v1Routes);
 
 app.get('/', (req, res) => {
   res.redirect('/admin/tenants');
