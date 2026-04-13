@@ -274,6 +274,10 @@ export class WhatsAppBot {
       if ((msg as any).isStatus) return;
       if (msg.from === 'status@broadcast') return;
 
+      // Skip linked-device IDs (@lid) — these are not real phone numbers and
+      // sendMessage to @lid resolves to 0@c.us causing silent delivery failures
+      if (msg.from.endsWith('@lid')) return;
+
       // Check for duplicates
       if (this.deduplicator.isDuplicate(msg.id.id)) {
         this.logger.warn({ msgId: msg.id.id }, 'Duplicate message detected, skipping');
