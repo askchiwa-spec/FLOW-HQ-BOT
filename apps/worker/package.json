@@ -12,7 +12,7 @@
     "@sentry/node": "^10.45.0",
     "dotenv": "^16.3.1",
     "qrcode": "^1.5.3",
-    "whatsapp-web.js": "^1.23.0"
+    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#main"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
